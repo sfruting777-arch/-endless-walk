@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
 <meta name="theme-color" content="#1c2827">
-<title>Бесконечная прогулка — мастерская V2</title>
+<title>Бесконечная прогулка — мастерская V3</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#1c2827;color:#fff;font:15px system-ui,-apple-system,sans-serif;overflow:hidden}canvas{display:block;touch-action:none}
 header{position:fixed;z-index:3;top:env(safe-area-inset-top);left:0;right:0;text-align:center;pointer-events:none;padding:10px 15px;text-shadow:0 2px 6px #000}h1{font-size:18px;margin:0 0 4px;color:#ffe4b3}#status{font-size:12px;opacity:.92}
@@ -20,11 +20,11 @@ header{display:block}.hint{display:none}#stats{top:65px;pointer-events:none} .co
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"}}</script>
 </head>
 <body>
-<header><h1>🐾 Мастерская V2</h1><div id="status">Выбери GLB из файлов iPhone / iPad / ПК</div></header>
+<header><h1>🐾 Мастерская V3</h1><div id="status">Выбери GLB из файлов iPhone / iPad / ПК</div></header>
 <div class="hint">Проводи пальцем — вращение · двумя пальцами — масштаб</div>
 <div id="stats"></div>
 <div id="drop">Отпусти GLB, чтобы загрузить</div>
-<div class="controls"><button id="dogPreset" class="btn primary">🐕 Собака V2</button><button id="pigPreset" class="btn primary">🐷 Поросёнок</button>
+<div class="controls"><button id="rigPreset" class="btn primary">🐕 Живая собака</button><button id="dogPreset">Собака V2</button><button id="pigPreset" class="btn primary">🐷 Поросёнок</button>
 <label class="btn primary">📁 Открыть GLB<input type="file" id="file" accept=".glb,model/gltf-binary,application/octet-stream"></label>
 <button id="reset">↺ Камера</button><button id="turn">🔄 Автовращение</button><button id="wire">◈ Сетка</button><button id="anim" style="display:none">▶ Анимация</button><select id="clip" hidden></select><button id="infoBtn">Данные</button><button id="lightBtn">Свет</button><button id="bottomBtn">Низ / верх</button><button id="gridBtn">Пол</button><label>Скорость <input id="speed" type="range" min=".25" max="2" step=".25" value="1" style="width:85px"></label>
 </div>
@@ -47,6 +47,21 @@ ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
 const grid=new THREE.GridHelper(16,32,0x8ea38c,0x71887a);grid.position.y=.006;grid.material.opacity=.24;grid.material.transparent=true;scene.add(grid);
 const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.09;controls.minDistance=.25;controls.maxDistance=50;controls.maxPolarAngle=Math.PI-.025;
 let current=null,mixer=null,clips=[],showWire=false,turning=false,playing=false,clock=new THREE.Clock(),centerY=.7,camRadius=3;
+// Custom clips, relative to the imported bind pose.
+function makeIdle(model){
+ const bones=new Map();model.traverse(o=>{if(o.isBone)bones.set(o.name,o)});
+ if(!['chest','neck1','tail1','jaw_01'].every(n=>bones.has(n)))return null;
+ const duration=8, count=97, times=Array.from({length:count},(_,i)=>duration*i/(count-1)), tracks=[];
+ const wave=(t,k,phase=0)=>Math.sin(2*Math.PI*k*t/duration+phase);
+ function rot(n,fn){const b=bones.get(n);if(!b)return;const vals=[];for(const t of times){const a=fn(t);const q=b.quaternion.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(...a,'XYZ')));vals.push(q.x,q.y,q.z,q.w)}tracks.push(new THREE.QuaternionKeyframeTrack(b.uuid+'.quaternion',times,vals))}
+ function scale(n,fn){const b=bones.get(n);if(!b)return;const vals=[];for(const t of times){const a=fn(t);vals.push(b.scale.x*a[0],b.scale.y*a[1],b.scale.z*a[2])}tracks.push(new THREE.VectorKeyframeTrack(b.uuid+'.scale',times,vals))}
+ scale('chest',t=>[1+.012*(1+wave(t,3))/2,1,1]);
+ rot('neck1',t=>[.008*wave(t,3),.018*wave(t,1),0]);
+ rot('head',t=>[.009*wave(t,3,.5),.016*wave(t,1,.7),.009*wave(t,1)]);
+ rot('jaw_01',t=>[.014*wave(t,7),0,0]);
+ ['tail1','tail2','tail3','tail4'].forEach((n,i)=>rot(n,t=>[0,(.095-i*.012)*wave(t,4,-i*.5),.012*wave(t,4,-i*.5)]));
+ return new THREE.AnimationClip('Покой — дыхание и хвост',duration,tracks);
+}
 function resetCamera(){controls.target.set(0,centerY,0);camera.position.set(camRadius*.85,centerY+camRadius*.36,camRadius*1.05);controls.update()}
 resetCamera();
 let loadGeneration=0; function loadFile(file){
@@ -59,7 +74,7 @@ let loadGeneration=0; function loadFile(file){
   release(); if(generation!==loadGeneration){gltf.scene.traverse(x=>{if(x.isMesh){x.geometry?.dispose();for(const m of (Array.isArray(x.material)?x.material:[x.material])){if(!m)continue;for(const k of ['map','normalMap','roughnessMap','metalnessMap','aoMap','emissiveMap'])m[k]?.dispose();m.dispose()}}});return;}
   if(current){scene.remove(current);current.traverse(x=>{if(x.isMesh){x.geometry?.dispose();const ms=Array.isArray(x.material)?x.material:[x.material];for(const m of ms){if(!m)continue;for(const k of ['map','normalMap','roughnessMap','metalnessMap','aoMap','emissiveMap'])m[k]?.dispose();m.dispose()}}})}
   if(mixer)mixer.stopAllAction();mixer=null;clips=gltf.animations||[];playing=false;
-  current=gltf.scene;scene.add(current);
+  current=gltf.scene;scene.add(current); const idle=makeIdle(current);if(idle)clips=[idle,...clips];
   current.updateMatrixWorld(true);
   let bounds=new THREE.Box3().setFromObject(current),size=bounds.getSize(new THREE.Vector3());
   if(!(Math.max(size.x,size.y,size.z)>0))throw Error('Не найдена геометрия');
@@ -78,9 +93,11 @@ let loadGeneration=0; function loadFile(file){
   const sel=document.getElementById('clip');sel.replaceChildren();sel.hidden=!clips.length;clips.forEach((c,i)=>sel.add(new Option(c.name||('Анимация '+(i+1)),i)));if(clips.length){mixer=new THREE.AnimationMixer(current);document.getElementById('anim').style.display='';document.getElementById('anim').textContent='▶ Анимация'}
   else document.getElementById('anim').style.display='none';
   stats.textContent='Файл: '+file.name+'\nТреугольники: '+triangles.toLocaleString('ru-RU')+'\nВершины: '+vertices.toLocaleString('ru-RU')+'\nМеши: '+meshes+' · материалы: '+mats.size+'\nСкелетные меши: '+skinned+' · анимации: '+clips.length+'\nНормализованная высота: '+size.y.toFixed(2)+' м';
-  status.textContent='✅ Модель загружена. Осматривай со всех сторон!';
+  status.textContent='✅ Модель загружена. Осматривай со всех сторон!'; if(idle&&mixer){playing=true;mixer.clipAction(idle).play();document.getElementById('anim').textContent='⏸ Анимация';}
  },undefined,e=>{release();if(generation!==loadGeneration)return;status.textContent='Ошибка загрузки: '+(e?.message||String(e))});
 }
+const rigPreset={name:'Meshy_AI_dog_collar_repair_v2_20261126_character.glb',size:10235700,remoteUrl:'../animations/Meshy_AI_dog_collar_repair_v2_20261126_character.glb'};
+document.getElementById('rigPreset').onclick=()=>loadFile(rigPreset);
 const dogPreset={name:'dog_collar_repair_v2.glb',size:10041456,remoteUrl:'../models/repaired/dog_collar_repair_v2.glb'};
 const pigPreset={name:'Meshy_AI_Polka_Dot_Piggy_20261125_texture.glb',size:4746636,remoteUrl:'../models/approved/Meshy_AI_Polka_Dot_Piggy_20261125_texture.glb'};
 document.getElementById('dogPreset').onclick=()=>loadFile(dogPreset);
@@ -97,5 +114,5 @@ let bottom=false;document.getElementById('bottomBtn').onclick=()=>{bottom=!botto
 document.getElementById('clip').onchange=()=>{if(playing&&mixer){mixer.stopAllAction();mixer.clipAction(clips[Number(document.getElementById('clip').value)]).reset().play()}};
 const drop=document.getElementById('drop');window.addEventListener('dragover',e=>{e.preventDefault();drop.style.display='grid'});drop.addEventListener('dragleave',e=>{e.preventDefault();drop.style.display='none'});window.addEventListener('drop',e=>{e.preventDefault();drop.style.display='none';loadFile(e.dataTransfer?.files?.[0])});
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
-function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);if(playing)mixer?.update(dt*Number(document.getElementById('speed').value));controls.update();renderer.render(scene,camera)}animate();loadFile(dogPreset);
+function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);if(playing)mixer?.update(dt*Number(document.getElementById('speed').value));controls.update();renderer.render(scene,camera)}animate();loadFile(rigPreset);
 </script></body></html>
