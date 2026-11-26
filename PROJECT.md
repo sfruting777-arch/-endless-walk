@@ -42,3 +42,8 @@
 ## Dog Final P19 / V5.19
 - dog-final/index.html: candidate final dog assembly, automatic tongue (2.0), blink (2 calibrated eyes), ears (133+146 vertices, amplitude 4.0), speed 1.20. No manual selection needed.
 - P18 and P14 remain intact as backups. Awaiting final visual test of integrated ear masks.
+
+
+## Хозяин — утверждение H12
+- owner-workshop-h12/index.html: пользователь утвердил внешний вид. База H9, модель owner-v2-rig-no-animations.glb, отдельные очки масштаб 0.925, верхняя губа 0.003, узкая маска без пересчёта нормалей. Сохранить H12 неизменной.
+- Следующий этап: отдельная версия естественной ходьбы, опора стоп, плавный перенос веса, спокойные руки без подпрыгивания. DOG FINAL не менять.
