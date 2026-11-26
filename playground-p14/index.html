@@ -1,0 +1,245 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><title>Бесконечная прогулка — Полигон P14</title><style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{width:100%;height:100%;position:fixed;inset:0;overscroll-behavior:none;touch-action:none;-webkit-text-size-adjust:100%;user-select:none;-webkit-user-select:none}body{margin:0;overflow:hidden;background:#8aa49a;color:white;font:14px system-ui;touch-action:none}canvas{display:block;touch-action:none}button{background:#223d36e8;color:#fff;border:1px solid #d2c5a0;border-radius:12px;padding:9px 13px;font:600 14px system-ui;min-height:40px}#hud{position:fixed;top:calc(env(safe-area-inset-top) + 10px);left:12px;pointer-events:none;text-shadow:0 1px 5px #000;background:#223d36b0;padding:8px 12px;border-radius:10px}#tools{position:fixed;right:12px;top:calc(env(safe-area-inset-top) + 10px);display:flex;gap:5px}#panel{position:fixed;right:12px;top:calc(env(safe-area-inset-top) + 60px);background:#223d36ee;border-radius:12px;padding:10px;display:grid;gap:8px}#panel[hidden]{display:none}#joy{position:fixed;left:calc(env(safe-area-inset-left) + 22px);bottom:calc(env(safe-area-inset-bottom) + 24px);width:126px;height:126px;border-radius:50%;border:2px solid #f2d29b99;background:#172a2866;touch-action:none;display:grid;place-items:center}#knob{width:56px;height:56px;border:1px solid #ffe5b9;border-radius:50%;background:#c39859d9;display:grid;place-items:center;font-size:26px;pointer-events:none;box-shadow:0 2px 8px #0004}#zoom{position:fixed;right:calc(env(safe-area-inset-right) + 15px);bottom:calc(env(safe-area-inset-bottom) + 24px);display:grid;gap:8px}#help{position:fixed;bottom:calc(env(safe-area-inset-bottom) + 8px);left:50%;transform:translateX(-50%);font-size:11px;text-shadow:0 1px 4px black;pointer-events:none;white-space:nowrap}
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"}}</script></head><body><div id="hud"><b>Полигон P14 · V5.14</b><div id="status">Загрузка собаки…</div><div id="fps">FPS —</div></div><div id="tools"><button id="menu" aria-label="Настройки">◇</button></div><div id="panel" hidden><label>Скорость <output id="speedText">1.20</output><br><input id="speed" type="range" min=".3" max="1.2" value="1.2" step=".05"></label><button id="pickTongue">Выбрать язык</button><button id="exportTongue">Сохранить язык (файл)</button><label>Радиус выбора <input id="tongueRadius" type="range" min=".025" max=".12" step=".005" value=".065"></label><button id="markTongue">Подсветка: вкл./выкл.</button><button id="tongueToggle">Язык: вкл.</button><label>Амплитуда языка <output id="tongueVal">2.0</output><br><input id="tongueAmp" type="range" min="0.5" max="5" step=".5" value="2"></label><button id="reset">В начало</button><button id="side">Вид сбоку</button><button id="follow">Вид сзади / сброс камеры</button></div><div id="joy"><div id="knob">🐾</div></div><div id="zoom"><button id="plus">＋</button><button id="minus">−</button></div><div id="help">Палец на джойстике · камера — свайп</div><script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+const $=id=>document.getElementById(id),status=$('status');
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x9eb5b6);scene.fog=new THREE.Fog(0x9eb5b6,24,65);
+const camera=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,.05,100);
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.55;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;document.body.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xe5f2ff,0x775b3b,2.8));const sun=new THREE.DirectionalLight(0xffe6ba,3.1);sun.position.set(-6,9,5);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-12,right:12,top:12,bottom:-12,near:.1,far:40});sun.shadow.normalBias=.02;scene.add(sun,sun.target);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(100,100),new THREE.MeshStandardMaterial({color:0x69856a,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+const grid=new THREE.GridHelper(28,56,0xc2c7a1,0x8caa88);grid.position.y=.003;grid.material.transparent=true;grid.material.opacity=.35;scene.add(grid);
+const border=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([[-12,-12],[12,-12],[12,12],[-12,12]].map(([x,z])=>new THREE.Vector3(x,.012,z))),new THREE.LineBasicMaterial({color:0xe3d6a5}));scene.add(border);
+const mat=new THREE.MeshStandardMaterial({color:0xd3b783});for(let x=-10;x<=10;x+=5)for(let z=-10;z<=10;z+=5){if(x===0&&z===0)continue;const m=new THREE.Mesh(new THREE.CylinderGeometry(.10,.15,.16,12),mat);m.position.set(x,.08,z);scene.add(m)}
+const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.touches.TWO=-1;controls.enablePan=false;controls.minDistance=1.5;controls.maxDistance=12;controls.maxPolarAngle=Math.PI/2-.06;controls.target.set(0,.65,0);camera.position.set(3,2.7,4.6);controls.update();
+let current=null,mixer=null,idleAction=null,walkAction=null,moving=false,forwardAngle=0,travelSpeed=0;
+const actor=new THREE.Group();scene.add(actor);
+function makeIdle(model){
+ const bones=new Map();model.traverse(o=>{if(o.isBone)bones.set(o.name,o)});
+ if(!['chest','neck1','tail1','jaw_01'].every(n=>bones.has(n)))return null;
+ const duration=8, count=97, times=Array.from({length:count},(_,i)=>duration*i/(count-1)), tracks=[];
+ const wave=(t,k,phase=0)=>Math.sin(2*Math.PI*k*t/duration+phase);
+ function rot(n,fn){const b=bones.get(n);if(!b)return;const vals=[];for(const t of times){const a=fn(t);const q=b.quaternion.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(...a,'XYZ')));vals.push(q.x,q.y,q.z,q.w)}tracks.push(new THREE.QuaternionKeyframeTrack(b.uuid+'.quaternion',times,vals))}
+ function scale(n,fn){const b=bones.get(n);if(!b)return;const vals=[];for(const t of times){const a=fn(t);vals.push(b.scale.x*a[0],b.scale.y*a[1],b.scale.z*a[2])}tracks.push(new THREE.VectorKeyframeTrack(b.uuid+'.scale',times,vals))}
+ scale('chest',t=>[1+.012*(1+wave(t,3))/2,1,1]);
+ rot('neck1',t=>[.008*wave(t,3),.018*wave(t,1),0]);
+ rot('head',t=>[.009*wave(t,3,.5),.016*wave(t,1,.7),.009*wave(t,1)]);
+ rot('jaw_01',t=>[.014*wave(t,7),0,0]);
+ ['tail1','tail2','tail3','tail4'].forEach((n,i)=>rot(n,t=>[0,(.095-i*.012)*wave(t,4,-i*.5),.012*wave(t,4,-i*.5)]));
+ return new THREE.AnimationClip('Покой — дыхание и хвост',duration,tracks);
+}
+// Four-beat walk, rotations relative to the actual bind pose, about world lateral axis.
+function makeWalk(model, amplitude=1){
+ model.updateMatrixWorld(true);
+ const norm=n=>n.toLowerCase().replace(/[^a-z0-9]/g,''); const bones=new Map();model.traverse(o=>{if(o.isBone)bones.set(norm(o.name),o)});
+ if(!['frontUpr.L','frontUpr.R','rearUpr.L','rearUpr.R'].every(n=>bones.has(norm(n))))return null;
+ const duration=1.15, times=Array.from({length:73},(_,i)=>duration*i/72), tracks=[];
+ const tau=Math.PI*2;
+ function rot(name,fn,axis=new THREE.Vector3(1,0,0)){
+  const b=bones.get(norm(name));if(!b)return;
+  const rest=b.quaternion.clone(), localAxis=axis.clone().applyQuaternion(b.getWorldQuaternion(new THREE.Quaternion()).invert()).normalize(),vals=[];
+  for(const t of times){const q=rest.clone().multiply(new THREE.Quaternion().setFromAxisAngle(localAxis,fn(t)*(name.startsWith('rear')?Math.min(1.08, .65+.35*amplitude):amplitude)));vals.push(q.x,q.y,q.z,q.w)}
+  tracks.push(new THREE.QuaternionKeyframeTrack(b.uuid+'.quaternion',times,vals));
+ }
+ // Swing occupies 38% of cycle; stance carries foot backward.
+ const phase=(t,offset)=>(t/duration+offset)%1;
+ function stride(p){return p<.38?Math.cos(Math.PI*p/.38): -Math.cos(Math.PI*(p-.38)/.62)}
+ function lift(p){return p<.38?Math.sin(Math.PI*p/.38):0}
+ for(const [side,fp,rp] of [['L',.25,0],['R',.75,.5]]){
+  const f=t=>phase(t,fp),r=t=>phase(t,rp);
+  rot('frontUpr.'+side,t=>.25*stride(f(t))-.07*lift(f(t)));
+  rot('frontLwr.'+side,t=>.32*lift(f(t)));
+  rot('frontHorselink.'+side,t=>-.16*lift(f(t))-.12*stride(f(t)));
+  rot('frontToe.'+side,t=>-.08*lift(f(t)));
+  // Rear paws follow a shared four-beat timing, with a planted stance
+  // and a lifted forward swing. Solve the actual joint chain, not independent angles.
+  const chain=['rearUpr.','rearLwr.','rearHorselink.'].map(n=>bones.get(norm(n+side)));
+  const foot=bones.get(norm('rearFoot.'+side));
+  if(chain.every(Boolean)&&foot){
+   const rest=chain.map(b=>b.quaternion.clone()), footRest=foot.quaternion.clone();
+   const worldFoot=foot.getWorldQuaternion(new THREE.Quaternion());
+   const origin=foot.getWorldPosition(new THREE.Vector3());
+   const axisWorld=new THREE.Vector3(1,0,0), axes=chain.map(b=>axisWorld.clone().applyQuaternion(b.getWorldQuaternion(new THREE.Quaternion()).invert()));
+   const unit=model.getWorldScale(new THREE.Vector3()).y;
+   const values=chain.map(()=>[]), footValues=[];
+   const strength=Math.min(1.12,.65+.35*amplitude);
+   for(const t of times){
+    chain.forEach((b,i)=>b.quaternion.copy(rest[i]));foot.quaternion.copy(footRest);model.updateMatrixWorld(true);
+    const p=r(t), swing=p<.38, u=swing?p/.38:(p-.38)/.62;
+    const smooth=u*u*(3-2*u);
+    const z=.8*(swing?(-.035+.115*smooth):(.080-.115*u));
+    // Identify forward from the neck relative to the hind hip, not an assumed axis sign.
+    const neck=bones.get(norm('neck1'));
+    const forwardSign=neck?Math.sign(neck.getWorldPosition(new THREE.Vector3()).z-chain[0].getWorldPosition(new THREE.Vector3()).z)||1:1;
+    const forwardZ=z*forwardSign>0?z*1.15:z;
+    const target=origin.clone().add(new THREE.Vector3(0,swing?.032*Math.sin(Math.PI*u)*strength*unit:0,forwardZ*strength*unit));
+    const hipAngle=.192*stride(p)*strength;
+    const angles=[hipAngle,0,0];
+    chain[0].quaternion.copy(rest[0]).multiply(new THREE.Quaternion().setFromAxisAngle(axes[0],hipAngle));model.updateMatrixWorld(true);
+    for(let iter=0;iter<12;iter++){
+     for(let k=2;k>=0;k--){
+      const joint=chain[k], pos=joint.getWorldPosition(new THREE.Vector3());
+      const a=foot.getWorldPosition(new THREE.Vector3()).sub(pos), d=target.clone().sub(pos);
+      a.x=0;d.x=0;if(a.lengthSq()<1e-12||d.lengthSq()<1e-12)continue;
+      const delta=Math.atan2(a.clone().cross(d).x,a.dot(d));
+      const limits=[.40,.52,.416];const lo=k===0?Math.max(-limits[k],hipAngle-.045):-limits[k],hi=k===0?Math.min(limits[k],hipAngle+.045):limits[k];angles[k]=THREE.MathUtils.clamp(angles[k]+delta*.65,lo,hi);
+      joint.quaternion.copy(rest[k]).multiply(new THREE.Quaternion().setFromAxisAngle(axes[k],angles[k]));model.updateMatrixWorld(true);
+     }
+    }
+    foot.quaternion.copy(footRest).slerp(foot.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(worldFoot),.8);
+    chain.forEach((b,i)=>values[i].push(...b.quaternion.toArray()));footValues.push(...foot.quaternion.toArray());
+   }
+   chain.forEach((b,i)=>{b.quaternion.copy(rest[i]);tracks.push(new THREE.QuaternionKeyframeTrack(b.uuid+'.quaternion',times,values[i]))});
+   foot.quaternion.copy(footRest);tracks.push(new THREE.QuaternionKeyframeTrack(foot.uuid+'.quaternion',times,footValues));model.updateMatrixWorld(true);
+  }
+ }
+ // Visible but restrained torso motion; preserve leg tracks.
+ const beat=t=>tau*t/duration;
+ const up=new THREE.Vector3(0,1,0), lateral=new THREE.Vector3(1,0,0);
+ function torso(n,yaw,pitch,offset){
+  const bone=bones.get(norm(n));if(!bone)return;
+  const rest=bone.quaternion.clone(), inv=bone.getWorldQuaternion(new THREE.Quaternion()).invert();
+  const ay=up.clone().applyQuaternion(inv),ax=lateral.clone().applyQuaternion(inv),vals=[];
+  for(const t of times){const p=beat(t)+offset;const q=rest.clone().multiply(new THREE.Quaternion().setFromAxisAngle(ay,yaw*Math.sin(p))).multiply(new THREE.Quaternion().setFromAxisAngle(ax,pitch*Math.sin(2*p)));vals.push(...q.toArray())}
+  tracks.push(new THREE.QuaternionKeyframeTrack(bone.uuid+'.quaternion',times,vals));
+ }
+ torso('spine2',.015,.004,0);
+ torso('spine_03',.017,.006,-.35);
+ torso('spine_04',-.014,-.004,-.65);
+ torso('chest',-.015,-.006,-.35);
+ rot('clavicle.L',t=>.028*Math.sin(beat(t)+Math.PI/2));
+ rot('clavicle.R',t=>.028*Math.sin(beat(t)-Math.PI/2));
+ rot('neck1',t=>.018*Math.sin(tau*t/duration*2));
+ rot('head',t=>-.012*Math.sin(tau*t/duration*2));
+ ['tail1','tail2','tail3','tail4'].forEach((n,i)=>rot(n,t=>.065*Math.sin(tau*t/duration-i*.45),new THREE.Vector3(0,1,0)));
+ return new THREE.AnimationClip('Ходьба — тест V5.14',duration,tracks);
+}
+let groundBase=0, groundMeshes=[]; const groundVertex=new THREE.Vector3();
+const normBone=n=>n.toLowerCase().replace(/[^a-z0-9]/g,'');
+let pawGroups=[], adjusted=[];
+function restorePaws(){for(const a of adjusted)a.b.position.copy(a.p);adjusted=[]}
+function setupPaws(model){
+ pawGroups=[];const bones=[];model.traverse(o=>{if(o.isBone)bones.push(o)});
+ for(const side of ['l','r'])for(const limb of ['front','rear']){
+  const candidates=limb==='rear'?[limb+'foot'+side,limb+'toe'+side]:[limb+'toe'+side,limb+'foot'+side,limb+'horselink'+side];
+  const b=candidates.map(n=>bones.find(x=>normBone(x.name)===n)).find(Boolean);if(!b)continue;
+  const chain=new Set();b.traverse(x=>{if(x.isBone)chain.add(x)});
+  const samples=[];model.traverse(o=>{if(!o.isSkinnedMesh)return;const a=o.geometry.attributes.skinIndex,w=o.geometry.attributes.skinWeight;if(!a||!w)return;
+   for(let i=0;i<a.count;i++){let weight=0;for(let k=0;k<4;k++){const idx=a.array[i*4+k];if(chain.has(o.skeleton.bones[idx]))weight+=w.array[i*4+k]}if(weight<(limb==='rear'?.4:.7))continue;o.getVertexPosition(i,groundVertex);o.localToWorld(groundVertex);if(groundVertex.y<.16)samples.push({o,i})}
+  });if(samples.length)pawGroups.push({b,samples});
+ }
+}
+function correctPaws(){
+ if(!current)return;current.updateMatrixWorld(true);
+ for(const {b,samples} of pawGroups){let low=Infinity;for(const {o,i} of samples){o.getVertexPosition(i,groundVertex);o.localToWorld(groundVertex);low=Math.min(low,groundVertex.y)}
+ if(low<.003&&b.parent){const delta=Math.min(.12,.003-low);const p=b.position.clone(),world=b.getWorldPosition(new THREE.Vector3());world.y+=delta;b.position.copy(b.parent.worldToLocal(world));adjusted.push({b,p});current.updateMatrixWorld(true)}
+ }
+}
+
+let tongueEnabled=true,tongueParts=[],tongueTime=0;
+let tongueSelect=false,tongueHit=null,tongueMesh=null;
+const tongueRay=new THREE.Raycaster(), tonguePointer=new THREE.Vector2();
+const marks=new THREE.Points(new THREE.BufferGeometry(),new THREE.PointsMaterial({color:0x00ffff,size:.018,depthTest:false,transparent:true,opacity:.9}));marks.renderOrder=999;scene.add(marks);marks.visible=false;
+function prepareTongue(){return 0}
+function tongueMeshes(){const meshes=[];current?.traverse(o=>{if(o.isSkinnedMesh)meshes.push(o)});return meshes}
+function serializeTongueMask(){const meshes=tongueMeshes();return tongueParts.map(t=>({mesh:meshes.indexOf(t.o),count:t.p.count,items:t.items,up:t.upLocal.toArray(),f:t.fLocal.toArray(),side:t.sideLocal.toArray()}))}
+function exportTongueMask(){if(!tongueParts.length){alert('Сначала выбери язык.');return}saveTongueMask();const data=JSON.stringify({format:'endless-walk-tongue-mask-v1',model:'Meshy_AI_dog_collar_repair_v2_20261126_character.glb',amplitude:Number($('tongueAmp').value),parts:serializeTongueMask()});const blob=new Blob([data],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='tongue-mask.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)}
+function saveTongueMask(){try{const meshes=tongueMeshes();localStorage.setItem('endless-walk-tongue-mask-v1',JSON.stringify(tongueParts.map(t=>({mesh:meshes.indexOf(t.o),count:t.p.count,items:t.items,up:t.upLocal.toArray(),f:t.fLocal.toArray(),side:t.sideLocal.toArray()}))))}catch(e){}}
+function restoreTongueMask(){try{const saved=[{"mesh":0,"count":7597,"items":[{"i":244,"w":0.19175},{"i":245,"w":0.13175},{"i":246,"w":0.22908},{"i":247,"w":0.19175},{"i":248,"w":0.32289},{"i":249,"w":0.30737},{"i":250,"w":0.14262},{"i":251,"w":0.14262},{"i":252,"w":0.32289},{"i":357,"w":0.1193},{"i":358,"w":0.38917},{"i":359,"w":0.13174},{"i":360,"w":0.43776},{"i":363,"w":0.04422},{"i":364,"w":0.36014},{"i":477,"w":0.35965},{"i":478,"w":0.39872},{"i":479,"w":0.4954},{"i":480,"w":0.16693},{"i":481,"w":0.08658},{"i":482,"w":0.26221},{"i":483,"w":0.31775},{"i":561,"w":0.04539},{"i":562,"w":0.06881},{"i":563,"w":0.05669},{"i":564,"w":0.04415},{"i":741,"w":0.04895},{"i":742,"w":0.04571},{"i":809,"w":0.65626},{"i":810,"w":0.43201},{"i":811,"w":0.77916},{"i":812,"w":0.86536},{"i":813,"w":0.72388},{"i":814,"w":0.47167},{"i":909,"w":0.02744},{"i":910,"w":0.22911},{"i":911,"w":0.22281},{"i":912,"w":0.02744},{"i":917,"w":0.05103},{"i":918,"w":0.22281},{"i":941,"w":0.59473},{"i":942,"w":0.61903},{"i":943,"w":0.46099},{"i":944,"w":0.59473},{"i":945,"w":0.7828},{"i":946,"w":0.70086},{"i":947,"w":0.49177},{"i":948,"w":0.6435},{"i":949,"w":0.51395},{"i":950,"w":0.6435},{"i":951,"w":0.70086},{"i":966,"w":0.0713},{"i":970,"w":0.17483},{"i":971,"w":0.06198},{"i":1148,"w":0.02708},{"i":1155,"w":0.02708},{"i":1250,"w":0.04539},{"i":1252,"w":0.0471},{"i":1253,"w":0.088},{"i":1254,"w":0.06881},{"i":1340,"w":0.47672},{"i":1341,"w":0.23723},{"i":1342,"w":0.65237},{"i":1343,"w":0.4245},{"i":1344,"w":0.66259},{"i":1358,"w":0.05775},{"i":1426,"w":0.33467},{"i":1427,"w":0.37737},{"i":1428,"w":0.3967},{"i":1429,"w":0.29564},{"i":1430,"w":0.20257},{"i":1431,"w":0.12176},{"i":1436,"w":0.37009},{"i":1437,"w":0.74174},{"i":1438,"w":0.55411},{"i":1439,"w":0.48456},{"i":1440,"w":0.25144},{"i":1441,"w":0.27369},{"i":1442,"w":0.16586},{"i":1443,"w":0.37009},{"i":1444,"w":0.27369},{"i":1445,"w":0.16586},{"i":1542,"w":0.06472},{"i":1685,"w":0.05187},{"i":1687,"w":0.19688},{"i":1688,"w":0.15928},{"i":1689,"w":0.15223},{"i":1690,"w":0.05212},{"i":1750,"w":0.6449},{"i":1751,"w":0.65098},{"i":1752,"w":0.71215},{"i":1753,"w":0.6449},{"i":1754,"w":0.77893},{"i":1755,"w":0.64488},{"i":1756,"w":0.66598},{"i":1757,"w":0.73522},{"i":1758,"w":0.65098},{"i":1759,"w":0.77893},{"i":1831,"w":0.06949},{"i":1857,"w":0.36055},{"i":1858,"w":0.16316},{"i":1873,"w":0.09924},{"i":1874,"w":0.28244},{"i":1875,"w":0.11026},{"i":2005,"w":0.05856},{"i":2120,"w":0.79808},{"i":2121,"w":0.75438},{"i":2122,"w":0.68835},{"i":2123,"w":0.76884},{"i":2124,"w":0.7552},{"i":2254,"w":0.22799},{"i":2257,"w":0.30606},{"i":2258,"w":0.08026},{"i":2259,"w":0.36365},{"i":2260,"w":0.57686},{"i":2344,"w":0.23272},{"i":2345,"w":0.40633},{"i":2346,"w":0.43192},{"i":2347,"w":0.24222},{"i":2348,"w":0.07115},{"i":2349,"w":0.23272},{"i":2350,"w":0.27891},{"i":2351,"w":0.47251},{"i":2352,"w":0.07115},{"i":2353,"w":0.40633},{"i":2359,"w":0.34073},{"i":2360,"w":0.33705},{"i":2361,"w":0.51978},{"i":2362,"w":0.24214},{"i":2363,"w":0.31775},{"i":2364,"w":0.31771},{"i":2365,"w":0.26194},{"i":2380,"w":0.58581},{"i":2381,"w":0.39701},{"i":2603,"w":0.02993},{"i":2604,"w":0.03098},{"i":2606,"w":0.02571},{"i":2607,"w":0.02993},{"i":2655,"w":0.08423},{"i":2656,"w":0.13311},{"i":2657,"w":0.03828},{"i":2659,"w":0.14793},{"i":2661,"w":0.21833},{"i":2737,"w":0.03757},{"i":2738,"w":0.03091},{"i":2852,"w":0.20098},{"i":2929,"w":0.29912},{"i":2930,"w":0.27412},{"i":2931,"w":0.257},{"i":2932,"w":0.14643},{"i":2933,"w":0.50752},{"i":3098,"w":0.32827},{"i":3099,"w":0.32043},{"i":3100,"w":0.26266},{"i":3140,"w":0.27269},{"i":3141,"w":0.14699},{"i":3142,"w":0.20657},{"i":3143,"w":0.1062},{"i":3144,"w":0.27269},{"i":3145,"w":0.28554},{"i":3146,"w":0.29509},{"i":3147,"w":0.20657},{"i":3148,"w":0.23784},{"i":3149,"w":0.23784},{"i":3177,"w":0.294},{"i":3178,"w":0.17933},{"i":3179,"w":0.43912},{"i":3180,"w":0.54702},{"i":3181,"w":0.33705},{"i":3182,"w":0.09967},{"i":3265,"w":0.05275},{"i":3394,"w":0.51946},{"i":3395,"w":0.51395},{"i":3396,"w":0.31787},{"i":3397,"w":0.52538},{"i":3439,"w":0.15738},{"i":3441,"w":0.06954},{"i":3442,"w":0.2707},{"i":3443,"w":0.20927},{"i":3444,"w":0.35452},{"i":3653,"w":0.60871},{"i":3654,"w":0.5213},{"i":3655,"w":0.81022},{"i":3656,"w":0.60871},{"i":3657,"w":0.5213},{"i":3782,"w":0.55348},{"i":3783,"w":0.79627},{"i":3784,"w":0.7079},{"i":3785,"w":0.3126},{"i":3823,"w":0.09493},{"i":3896,"w":0.07857},{"i":3897,"w":0.14663},{"i":3909,"w":0.07328},{"i":3910,"w":0.13448},{"i":3998,"w":0.648},{"i":3999,"w":0.57372},{"i":4000,"w":0.67943},{"i":4001,"w":0.43326},{"i":4002,"w":0.30141},{"i":4003,"w":0.47896},{"i":4004,"w":0.83363},{"i":4005,"w":0.6887},{"i":4012,"w":0.14175},{"i":4013,"w":0.088},{"i":4014,"w":0.22084},{"i":4015,"w":0.12668},{"i":4016,"w":0.09581},{"i":4017,"w":0.17993},{"i":4018,"w":0.06881},{"i":4123,"w":0.0713},{"i":4124,"w":0.13486},{"i":4173,"w":0.46307},{"i":4368,"w":0.6857},{"i":4369,"w":0.82325},{"i":4370,"w":0.76394},{"i":4371,"w":0.46148},{"i":4483,"w":0.07028},{"i":4498,"w":0.14388},{"i":4499,"w":0.47273},{"i":4500,"w":0.05275},{"i":4501,"w":0.48389},{"i":4504,"w":0.04014},{"i":4607,"w":0.63304},{"i":4657,"w":0.03742},{"i":4669,"w":0.47095},{"i":4670,"w":0.45463},{"i":4671,"w":0.54624},{"i":4672,"w":0.35873},{"i":4673,"w":0.47095},{"i":4674,"w":0.35873},{"i":4675,"w":0.47095},{"i":4676,"w":0.53636},{"i":4677,"w":0.38503},{"i":4678,"w":0.54624},{"i":4679,"w":0.38503},{"i":4699,"w":0.41412},{"i":4700,"w":0.35158},{"i":4701,"w":0.7819},{"i":4703,"w":0.83582},{"i":4704,"w":0.57686},{"i":4705,"w":0.41412},{"i":4923,"w":0.6426},{"i":4927,"w":0.13311},{"i":4928,"w":0.12896},{"i":4929,"w":0.08378},{"i":4930,"w":0.13138},{"i":4982,"w":0.22733},{"i":4983,"w":0.257},{"i":4984,"w":0.43091},{"i":4985,"w":0.32075},{"i":4986,"w":0.08938},{"i":5107,"w":0.09606},{"i":5108,"w":0.12134},{"i":5109,"w":0.09149},{"i":5144,"w":0.03289},{"i":5163,"w":0.02554},{"i":5164,"w":0.12318},{"i":5226,"w":0.34183},{"i":5227,"w":0.56582},{"i":5353,"w":0.10145},{"i":5354,"w":0.10145},{"i":5355,"w":0.19644},{"i":5356,"w":0.12912},{"i":5357,"w":0.1387},{"i":5358,"w":0.1387},{"i":5367,"w":0.47273},{"i":5368,"w":0.35158},{"i":5369,"w":0.7819},{"i":5370,"w":0.47273},{"i":5371,"w":0.6887},{"i":5418,"w":0.75826},{"i":5419,"w":0.82325},{"i":5420,"w":0.51978},{"i":5421,"w":0.75826},{"i":5490,"w":0.03472},{"i":5491,"w":0.21833},{"i":5492,"w":0.13138},{"i":5538,"w":0.59167},{"i":5539,"w":0.62284},{"i":5540,"w":0.67943},{"i":5541,"w":0.59167},{"i":5542,"w":0.46307},{"i":5543,"w":0.36886},{"i":5544,"w":0.59167},{"i":5545,"w":0.49257},{"i":5546,"w":0.57683},{"i":5547,"w":0.57683},{"i":5588,"w":0.17554},{"i":5590,"w":0.0607},{"i":5591,"w":0.17554},{"i":5593,"w":0.25702},{"i":5594,"w":0.25702},{"i":5658,"w":0.19055},{"i":5716,"w":0.08026},{"i":5724,"w":0.62898},{"i":5725,"w":0.93723},{"i":5929,"w":0.83363},{"i":5930,"w":0.62284},{"i":5948,"w":0.07926},{"i":5949,"w":0.12381},{"i":6007,"w":0.22911},{"i":6008,"w":0.22281},{"i":6009,"w":0.29564},{"i":6012,"w":0.17366},{"i":6013,"w":0.17366},{"i":6014,"w":0.1387},{"i":6097,"w":0.27047},{"i":6098,"w":0.68835},{"i":6099,"w":0.27047},{"i":6116,"w":0.66908},{"i":6117,"w":0.35465},{"i":6118,"w":0.68936},{"i":6119,"w":0.47083},{"i":6126,"w":0.28244},{"i":6127,"w":0.23795},{"i":6157,"w":0.85001},{"i":6158,"w":0.83958},{"i":6195,"w":0.60833},{"i":6196,"w":0.4689},{"i":6197,"w":0.62823},{"i":6198,"w":0.43091},{"i":6259,"w":0.13679},{"i":6261,"w":0.15596},{"i":6310,"w":0.08938},{"i":6324,"w":0.06198},{"i":6325,"w":0.06198},{"i":6340,"w":0.2077},{"i":6341,"w":0.10308},{"i":6394,"w":0.20993},{"i":6395,"w":0.20993},{"i":6396,"w":0.21155},{"i":6469,"w":0.12134},{"i":6470,"w":0.14663},{"i":6471,"w":0.09581},{"i":6530,"w":0.0605},{"i":6531,"w":0.09967},{"i":6532,"w":0.0605},{"i":6533,"w":0.24214},{"i":6604,"w":0.30606},{"i":6629,"w":0.37761},{"i":6630,"w":0.23972},{"i":6631,"w":0.37761},{"i":6632,"w":0.23972},{"i":6633,"w":0.29203},{"i":6670,"w":0.49257},{"i":6671,"w":0.57683},{"i":6672,"w":0.49257},{"i":6702,"w":0.31386},{"i":6703,"w":0.19492},{"i":6704,"w":0.42014},{"i":6705,"w":0.63304},{"i":6706,"w":0.76884},{"i":6707,"w":0.43866},{"i":6746,"w":0.08581},{"i":6766,"w":0.13486},{"i":6805,"w":0.2077},{"i":6806,"w":0.31787},{"i":6906,"w":0.85001},{"i":6915,"w":0.80394},{"i":6943,"w":0.08378},{"i":6977,"w":0.36837},{"i":6978,"w":0.23784},{"i":6979,"w":0.29509},{"i":6980,"w":0.42014},{"i":6989,"w":0.03296},{"i":6993,"w":0.32043},{"i":7095,"w":0.35873},{"i":7155,"w":0.06851},{"i":7156,"w":0.06851},{"i":7157,"w":0.1074},{"i":7224,"w":0.20927},{"i":7308,"w":0.36821},{"i":7333,"w":0.19492},{"i":7334,"w":0.42014},{"i":7352,"w":0.11307},{"i":7353,"w":0.11307},{"i":7360,"w":0.03432},{"i":7362,"w":0.83958},{"i":7363,"w":0.7552},{"i":7385,"w":0.30606},{"i":7388,"w":0.18634},{"i":7461,"w":0.66908},{"i":7471,"w":0.79808},{"i":7472,"w":0.83453},{"i":7473,"w":0.79808},{"i":7474,"w":0.83453}],"up":[0,1,0],"f":[-0.1316564417769693,0,0.9912954056882476],"side":[0.9912954056882476,0,0.1316564417769693]}],meshes=tongueMeshes();for(const t of saved){const o=meshes[t.mesh],p=o?.geometry.attributes.position;if(!p||p.count!==t.count||!Array.isArray(t.items)||!t.items.every(x=>Number.isInteger(x.i)&&x.i>=0&&x.i<p.count&&Number.isFinite(x.w)))continue;p.setUsage(THREE.DynamicDrawUsage);tongueParts.push({o,p,orig:new Float32Array(p.array),items:t.items,upLocal:new THREE.Vector3().fromArray(t.up),fLocal:new THREE.Vector3().fromArray(t.f),sideLocal:new THREE.Vector3().fromArray(t.side),worldScale:o.getWorldScale(new THREE.Vector3()).y||1})}if(tongueParts.length)$('tongueCount').textContent='Язык: '+tongueParts.reduce((s,p)=>s+p.items.length,0)+' вершин (встроено)'}catch(e){}}
+
+function selectTongue(hit){
+ for(const part of tongueParts){part.p.array.set(part.orig);part.p.needsUpdate=true}
+ tongueParts=[];const o=hit.object,p=o.geometry.attributes.position;
+ current.updateMatrixWorld(true);
+ const radius=Number($('tongueRadius').value),orig=new Float32Array(p.array),items=[],v=new THREE.Vector3();
+ for(let i=0;i<p.count;i++){o.getVertexPosition(i,v);o.localToWorld(v);const d=v.distanceTo(hit.point);if(d<radius){const w=1-THREE.MathUtils.smoothstep(d,0,radius);if(w>.025)items.push({i,w})}}
+ const inv=o.matrixWorld.clone().invert(),f=new THREE.Vector3(Math.sin(actor.rotation.y+forwardAngle),0,Math.cos(actor.rotation.y+forwardAngle));
+ if(items.length){p.setUsage(THREE.DynamicDrawUsage);tongueParts.push({p,orig,items,o,upLocal:new THREE.Vector3(0,1,0).transformDirection(inv),fLocal:f.clone().transformDirection(inv),sideLocal:new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0),f).transformDirection(inv),worldScale:o.getWorldScale(new THREE.Vector3()).y||1})}
+ $('tongueCount').textContent='Язык: '+items.length+' вершин';marks.visible=true;saveTongueMask();
+}
+function updateTongueMarks(){
+ if(!marks.visible)return;
+ const pts=[],v=new THREE.Vector3();for(const part of tongueParts){for(const {i} of part.items){part.o.getVertexPosition(i,v);part.o.localToWorld(v);pts.push(v.x,v.y,v.z)}}
+ marks.geometry.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));marks.geometry.computeBoundingSphere();
+}
+renderer.domElement.addEventListener('pointerdown',e=>{
+ if(!tongueSelect||!current)return;e.preventDefault();e.stopImmediatePropagation();
+ const rect=renderer.domElement.getBoundingClientRect();tonguePointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);
+ current.updateMatrixWorld(true);tongueRay.setFromCamera(tonguePointer,camera);const hits=tongueRay.intersectObject(current,true).filter(x=>x.object.isSkinnedMesh);
+ if(hits.length){selectTongue(hits[0]);tongueSelect=false;controls.enabled=true;$('pickTongue').textContent='Выбрать язык';$('panel').hidden=false}
+},true);
+let tongueBlend=0,tonguePhase=0,tongueGain=0;
+function moveTongue(dt,blend){
+ tongueTime+=dt;
+ tongueBlend+=(blend-tongueBlend)*(1-Math.exp(-dt*3.5));
+ tonguePhase=(tonguePhase+dt*(6+2*tongueBlend))%(Math.PI*2);
+ tongueGain+=((tongueEnabled?Number($('tongueAmp').value):0)-tongueGain)*(1-Math.exp(-dt*7));
+ const wave=Math.sin(tonguePhase),side=Math.sin(tongueTime*2.5),amount=tongueGain;
+ for(const part of tongueParts){const {p,orig,items,upLocal,fLocal,sideLocal,worldScale}=part;
+  for(const {i,w} of items){const k=i*3,a=amount*w*(.004+.0015*tongueBlend)/worldScale; p.setXYZ(i,orig[k]+a*(upLocal.x*wave+sideLocal.x*side*.10+fLocal.x*wave*.2),orig[k+1]+a*(upLocal.y*wave+sideLocal.y*side*.10+fLocal.y*wave*.2),orig[k+2]+a*(upLocal.z*wave+sideLocal.z*side*.10+fLocal.z*wave*.2));}p.needsUpdate=true;
+ }
+}
+const clock=new THREE.Clock(),input=new THREE.Vector2(),keys=new Set();let pointer=null;
+$('tongueToggle').onclick=()=>{tongueEnabled=!tongueEnabled;$('tongueToggle').textContent=tongueEnabled?'Язык: вкл.':'Язык: выкл.'};$('tongueAmp').oninput=()=>$('tongueVal').textContent=Number($('tongueAmp').value).toFixed(1);$('pickTongue').onclick=()=>{tongueSelect=true;controls.enabled=false;$('panel').hidden=true;$('tongueCount').textContent='Нажми на кончик языка'};$('markTongue').onclick=()=>{marks.visible=!marks.visible};$('exportTongue').onclick=exportTongueMask;const joy=$('joy'),knob=$('knob');function readJoy(e){const b=joy.getBoundingClientRect(),x=e.clientX-b.left-b.width/2,y=e.clientY-b.top-b.height/2,rr=b.width*.35,l=Math.hypot(x,y),k=l>rr?rr/l:1;input.set(x*k/rr,-y*k/rr);knob.style.transform='translate('+x*k+'px,'+y*k+'px)'}
+function clearJoy(){pointer=null;input.set(0,0);knob.style.transform='translate(0,0)'}
+joy.addEventListener('pointerdown',e=>{if(pointer!==null)return;pointer=e.pointerId;joy.setPointerCapture(pointer);readJoy(e);e.preventDefault()});joy.addEventListener('pointermove',e=>{if(e.pointerId===pointer)readJoy(e)});for(const type of ['pointerup','pointercancel','lostpointercapture'])joy.addEventListener(type,e=>{if(e.pointerId===pointer)clearJoy()});
+addEventListener('keydown',e=>{if(/^(Arrow|Key[WASD])/.test(e.code)){keys.add(e.code);e.preventDefault()}});addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{keys.clear();clearJoy()});document.addEventListener('visibilitychange',()=>{if(document.hidden){keys.clear();clearJoy()}});
+$('menu').onclick=()=>{$('panel').hidden=!$('panel').hidden;$('menu').textContent=$('panel').hidden?'◇':'◆'};$('speed').oninput=()=>$('speedText').textContent=Number($('speed').value).toFixed(2);
+function zoom(k){const v=camera.position.clone().sub(controls.target);v.setLength(THREE.MathUtils.clamp(v.length()*k,controls.minDistance,controls.maxDistance));camera.position.copy(controls.target).add(v);controls.update()}$('plus').onclick=()=>zoom(.8);$('minus').onclick=()=>zoom(1.25);
+function cameraView(side=false){const ang=actor.rotation.y+forwardAngle;const v=new THREE.Vector3(Math.sin(ang),0,Math.cos(ang));const offset=side?new THREE.Vector3(v.z,0,-v.x).multiplyScalar(4.6):v.multiplyScalar(-4.6);controls.target.copy(actor.position).add(new THREE.Vector3(0,.65,0));camera.position.copy(controls.target).add(offset).add(new THREE.Vector3(0,1.7,0));controls.update()}
+$('side').onclick=()=>cameraView(true);$('follow').onclick=()=>cameraView(false);$('reset').onclick=()=>{actor.position.set(0,0,0);actor.rotation.y=0;travelSpeed=0;clearJoy();cameraView(false)};
+new GLTFLoader().load('../animations/Meshy_AI_dog_collar_repair_v2_20261126_character.glb',gltf=>{try{
+ current=gltf.scene;actor.add(current);const idle=makeIdle(current),walk=makeWalk(current);
+ const headBones=new Map();current.traverse(o=>{if(o.isBone)headBones.set(normBone(o.name),o)});
+ current.updateMatrixWorld(true);
+ const neckB=headBones.get('neck1'), hipB=headBones.get('rearuprl');
+ if(neckB&&hipB){
+  const f=neckB.getWorldPosition(new THREE.Vector3()).sub(hipB.getWorldPosition(new THREE.Vector3()));f.y=0;f.normalize();
+  const pitchAxis=new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0),f).normalize();
+  for(const [name,idleDeg,walkDeg] of [['neck1',2.6,1.95],['head',5.2,3.9]]){
+   const bone=headBones.get(name);if(!bone)continue;
+   const localAxis=pitchAxis.clone().applyQuaternion(bone.getWorldQuaternion(new THREE.Quaternion()).invert()).normalize();
+   for(const [clip,deg] of [[idle,idleDeg],[walk,walkDeg]]){
+    const track=clip?.tracks.find(t=>t.name===bone.uuid+'.quaternion');if(!track)continue;
+    const tilt=new THREE.Quaternion().setFromAxisAngle(localAxis,THREE.MathUtils.degToRad(deg));
+    const q=new THREE.Quaternion();for(let i=0;i<track.values.length;i+=4){q.fromArray(track.values,i).multiply(tilt).normalize().toArray(track.values,i)}
+   }
+  }
+ }if(!idle||!walk)throw Error('Не найдены анимации');
+ const box=new THREE.Box3().setFromObject(current),size=box.getSize(new THREE.Vector3());current.scale.setScalar(1.4/size.y);current.updateMatrixWorld(true);box.setFromObject(current);const c=box.getCenter(new THREE.Vector3());current.position.set(-c.x,-box.min.y,-c.z);current.updateMatrixWorld(true);groundBase=current.position.y;setupPaws(current);
+ const bones=new Map();current.traverse(o=>{if(o.isBone)bones.set(normBone(o.name),o);if(o.isMesh){o.castShadow=true;o.receiveShadow=true;if(o.isSkinnedMesh)o.frustumCulled=false}});
+ const neck=bones.get('neck1'),hip=bones.get('rearuprl');if(neck&&hip){const f=neck.getWorldPosition(new THREE.Vector3()).sub(hip.getWorldPosition(new THREE.Vector3()));forwardAngle=Math.atan2(f.x,f.z)}
+ const tongueVertices=prepareTongue(current,bones);$('hud').insertAdjacentHTML('beforeend','<div id="tongueCount" style="font-size:11px">Язык: выбери вручную</div>');// Secondary ear animation, separate from the approved gait.
+ const ears=[...bones.values()].filter(b=>/ear/i.test(b.name)&&!/rear/i.test(b.name));
+ for(const [i,b] of ears.entries()){
+  const rest=b.quaternion.clone(),inv=b.getWorldQuaternion(new THREE.Quaternion()).invert();
+  const axis=new THREE.Vector3(1,0,0).applyQuaternion(inv).normalize();
+  for(const [clip,amp,cycles] of [[idle,.035,3],[walk,.045,2]]){
+   const times=Array.from({length:97},(_,j)=>clip.duration*j/96),values=[];
+   for(const t of times){const p=2*Math.PI*cycles*t/clip.duration+i*.9;const q=rest.clone().multiply(new THREE.Quaternion().setFromAxisAngle(axis,amp*Math.sin(p)));values.push(...q.toArray())}
+   clip.tracks=clip.tracks.filter(t=>t.name!==b.uuid+'.quaternion');clip.tracks.push(new THREE.QuaternionKeyframeTrack(b.uuid+'.quaternion',times,values));
+  }
+ }
+ $('hud').insertAdjacentHTML('beforeend','<div style="font-size:11px">Уши: '+(ears.length?ears.length+' костей':'нет отдельных костей')+'</div>');
+ restoreTongueMask();
+ mixer=new THREE.AnimationMixer(current);idleAction=mixer.clipAction(idle);walkAction=mixer.clipAction(walk);idleAction.play();walkAction.play();walkAction.setEffectiveWeight(0);cameraView(false);status.textContent='Готово · покой';
+ }catch(e){status.textContent='Ошибка: '+e.message}},undefined,e=>status.textContent='Ошибка загрузки GLB');
+const fwd=new THREE.Vector3(),right=new THREE.Vector3(),desired=new THREE.Vector3(),delta=new THREE.Vector3();let frames=0,elapsed=0,blend=0;
+function animate(){requestAnimationFrame(animate);const raw=clock.getDelta(),dt=Math.min(raw,.05);frames++;elapsed+=raw;if(elapsed>=.6){$('fps').textContent='FPS '+Math.round(frames/elapsed);frames=0;elapsed=0}
+ if(mixer){restorePaws();let x=input.x,y=input.y;if(keys.size){x+=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0);y+=(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0)}
+ const mag=Math.min(1,Math.hypot(x,y)),active=mag>.12;camera.getWorldDirection(fwd);fwd.y=0;fwd.normalize();right.crossVectors(fwd,new THREE.Vector3(0,1,0)).normalize();desired.copy(fwd).multiplyScalar(y).addScaledVector(right,x);if(desired.lengthSq()>0)desired.normalize();
+ if(active){const target=Math.atan2(desired.x,desired.z)-forwardAngle;const diff=Math.atan2(Math.sin(target-actor.rotation.y),Math.cos(target-actor.rotation.y));actor.rotation.y+=diff*Math.min(1,dt*10)}
+ const maxSpeed=Number($('speed').value);travelSpeed+=( (active?maxSpeed*(.45+.55*mag):0)-travelSpeed)*(1-Math.exp(-dt*10));
+ const prev=actor.position.clone();const angle=actor.rotation.y+forwardAngle;actor.position.x=THREE.MathUtils.clamp(actor.position.x+Math.sin(angle)*travelSpeed*dt,-12,12);actor.position.z=THREE.MathUtils.clamp(actor.position.z+Math.cos(angle)*travelSpeed*dt,-12,12);delta.copy(actor.position).sub(prev);camera.position.add(delta);controls.target.add(delta);
+ blend+=( (active?1:0)-blend)*(1-Math.exp(-dt*12));idleAction.setEffectiveWeight(1-blend);walkAction.setEffectiveWeight(blend);walkAction.setEffectiveTimeScale(Math.max(.45,travelSpeed/.65));mixer.update(dt);moveTongue(dt,blend);current.position.y=groundBase;actor.updateMatrixWorld(true);if(blend>.4)correctPaws();status.textContent=active?'Ходьба · '+travelSpeed.toFixed(2)+' м/с':'Покой';
+ sun.position.copy(actor.position).add(new THREE.Vector3(-6,9,5));sun.target.position.copy(actor.position);
+ }updateTongueMarks();controls.update();renderer.render(scene,camera)}animate();
+function resizeGame(){const w=document.documentElement.clientWidth,h=document.documentElement.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix()}
+addEventListener('resize',resizeGame);resizeGame();
+for(const type of ['gesturestart','gesturechange','gestureend'])document.addEventListener(type,e=>e.preventDefault(),{passive:false});
+document.addEventListener('touchmove',e=>{if(e.touches.length>1)e.preventDefault()},{passive:false});
+let lastTouchEnd=0;document.addEventListener('touchend',e=>{const now=Date.now();if(now-lastTouchEnd<300&&!e.target.closest('button,input'))e.preventDefault();lastTouchEnd=now},{passive:false});
+document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
+</script></body></html>
