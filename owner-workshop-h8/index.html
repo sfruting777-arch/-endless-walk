@@ -57,3 +57,4 @@ document.addEventListener('selectstart',e=>e.preventDefault());
 document.addEventListener('contextmenu',e=>e.preventDefault());
 let lastTap=0;renderer.domElement.addEventListener('touchend',e=>{if(e.touches.length)return;const now=Date.now();if(now-lastTap<300)e.preventDefault();lastTap=now},{passive:false});for(const t of ['gesturestart','gesturechange','gestureend'])document.addEventListener(t,e=>e.preventDefault(),{passive:false});document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
 </script></body></html>
+<!-- Retry Pages publication after upstream 502; no model changes. -->
