@@ -37,3 +37,8 @@
 - playground-p14/index.html — пользователь подтвердил автоматическую анимацию языка. Встроенная маска 386 вершин, амплитуда 2.0, скорость 1.20.
 - P14 — новая утверждённая игровая основа. Сохранить без изменений.
 - Следующий эксперимент: локальная деформация ушей (отдельных костей нет).
+
+
+## Dog Final P19 / V5.19
+- dog-final/index.html: candidate final dog assembly, automatic tongue (2.0), blink (2 calibrated eyes), ears (133+146 vertices, amplitude 4.0), speed 1.20. No manual selection needed.
+- P18 and P14 remain intact as backups. Awaiting final visual test of integrated ear masks.
