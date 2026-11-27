@@ -70,3 +70,9 @@
 - Settings: tempo 0.80, stride 0.36, lift 0.035, torso 0.40, arms 1.0. Narrow stance, neck correction, toe flex, garment repairs retained.
 - Re-evaluate gait in park with dog before further changes.
 - Park direction: compact circular path around a large illuminated tree; benches, flowers, lights, free camera; walking with leash and toggle for free dog roaming. No scoring or timed tasks.
+
+
+## Park V7 — approved fetch stick
+- User approved branch appearance and size in Park V7. Asset: `models/approved/park_stick_optimized.glb` (582744 bytes, 9993 triangles). Preserve geometry and textures.
+- In park: length 0.40 m; cross-section scale 1.35 relative to uniform scaling at 40 cm (1.8× V6 thickness). Preserve local centering and ground alignment.
+- Approved park baseline: `park-v7/index.html`, 44 m park, 2.4 m path, John and dog scale retained. Next: fetch interaction (throw, retrieve, return to John); keep V7 intact.
