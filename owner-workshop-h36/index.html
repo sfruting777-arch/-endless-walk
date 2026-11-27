@@ -1,0 +1,226 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><title>John H36</title><style>*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}html,body{overscroll-behavior:none;-webkit-text-size-adjust:100%;width:100%;height:100%}html,body{margin:0;position:fixed;inset:0;overflow:hidden;touch-action:none;background:#829e91;color:white;font:14px system-ui}canvas{display:block;touch-action:none}#hud{position:fixed;top:calc(env(safe-area-inset-top) + 12px);left:12px;background:#203c36d9;border-radius:12px;padding:10px;pointer-events:none}#panel{position:fixed;bottom:calc(env(safe-area-inset-bottom) + 12px);left:8px;right:8px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;background:#203c36ed;border-radius:14px;padding:8px}button{background:#395e52;border:1px solid #d1c5a4;color:white;font:600 13px system-ui;border-radius:9px;padding:9px;min-height:38px}label{display:flex;align-items:center;gap:4px}input{width:85px}output{font-size:11px;min-width:36px;font-variant-numeric:tabular-nums}#toggle{position:fixed;right:12px;top:calc(env(safe-area-inset-top) + 12px)}#panel[hidden]{display:none}#hud{padding:6px 9px;border-radius:8px;font-size:11px;line-height:1.3;max-width:65%}#hud b,#fps{display:inline}#fps{margin-left:7px}#status{font-size:10px}#walkInfo,#distance,#lipInfo,#capInfo,#toothInfo{display:none}#panel{gap:5px;padding:7px}#panel button{font-size:12px;min-height:32px;padding:6px 10px}#panel label{font-size:11px}#panel input{width:75px}#panel output{min-width:30px}#toggle{min-height:32px;padding:6px 10px}</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"}}</script></head><body><div id="hud"><b>John · H36</b><span id="fps">FPS —</span><div id="clothInfo" style="font-size:10px"></div><div id="status">Загрузка модели…</div><div id="walkInfo">Ноги: подготовка</div><div id="distance">Путь 0.0 м</div><div id="lipInfo">Губа: поиск</div><div id="capInfo">Кепка: загрузка ремонта</div><div id="toothInfo">Десна: поиск</div></div><button id="toggle">◆</button><div id="panel"><button id="idle">Покой</button><button id="walk">Шаг на месте</button><button id="travel">Прогулка</button><label>Темп <input id="walkSpeed" type="range" min=".45" max="1.1" step=".05" value=".80"><output id="walkSpeedVal">0.80</output></label><label>Шаг <input id="walkStride" type="range" min=".18" max=".48" step=".02" value=".32"><output id="walkStrideVal">0.32</output></label><label>Подъём <input id="walkLift" type="range" min=".015" max=".085" step=".005" value=".035"><output id="walkLiftVal">0.035</output></label><label>Корпус <input id="bodyMotion" type="range" min="0" max="1.8" step=".05" value=".70"><output id="bodyMotionVal">0.70</output></label><label>Руки <input id="armMotion" type="range" min="0" max="1.8" step=".1" value="1"><output id="armMotionVal">1.0</output></label><button id="front">Спереди</button><button id="side">Сбоку</button><button id="back">Сзади</button><button id="plus">＋</button><button id="minus">−</button><div hidden style="display:none"><button id="toothPick">Подкрасить десну</button><button id="toothReset">Сброс краски</button><button id="toothSave">Сохранить файл</button><label>Кисть <input id="toothSize" type="range" min="3" max="22" value="9"></label><button id="lipPick">Выбрать верхнюю губу</button><label>Губа <input id="lipAmount" type="range" min="0" max=".006" step=".0005" value=".003"><output id="lipVal">0.003</output></label><button id="face">Лицо</button><button id="glassesToggle">Очки: вкл.</button><label>Высота <input id="gy" type="range" min="-.09" max=".09" step=".002" value="0"><output id="gyVal">0.000</output></label><label>Глубина <input id="gz" type="range" min="-.08" max=".08" step=".002" value="0"><output id="gzVal">0.000</output></label><label>Вбок <input id="gx" type="range" min="-.03" max=".03" step=".001" value="0"><output id="gxVal">0.000</output></label><label>Размер <input id="gs" type="range" min=".65" max="1.6" step=".025" value="0.925"><output id="gsVal">0.925</output></label></div></div><script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+const $=id=>document.getElementById(id),scene=new THREE.Scene();scene.background=new THREE.Color(0x90a89e);
+const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.02,100),renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.35;document.body.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xf1f6ff,0x72634c,2.6));const light=new THREE.DirectionalLight(0xffecd7,3);light.position.set(3,6,4);light.castShadow=true;light.shadow.mapSize.set(1024,1024);Object.assign(light.shadow.camera,{left:-4,right:4,top:4,bottom:-4});scene.add(light);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(50,50),new THREE.MeshStandardMaterial({color:0x728f78,roughness:1}));floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);const grid=new THREE.GridHelper(20,40,0xc4c8a8,0x8da58b);grid.position.y=.001;scene.add(grid);
+const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.enablePan=true;controls.screenSpacePanning=true;controls.panSpeed=1.0;controls.touches.TWO=THREE.TOUCH.DOLLY_PAN;controls.enableZoom=true;controls.zoomSpeed=1;controls.minDistance=.8;controls.maxDistance=10;controls.target.set(0,.9,0);camera.position.set(2,1.4,3.4);controls.update();
+let model=null,bones=new Map(),rests=new Map(),axes=new Map(),phase=0,time=0,blend=0,wanted=0,forward=new THREE.Vector3(0,0,1),side=new THREE.Vector3(1,0,0),groundY=0,hipRest=null,hipUp=null,hipSide=null,modelScale=1;
+const names=['Hips','Spine','Spine1','Spine2','Neck','Head','LeftArm','RightArm','LeftForeArm','RightForeArm','LeftUpLeg','RightUpLeg','LeftLeg','RightLeg','LeftFoot','RightFoot','LeftToeBase','RightToeBase'];
+const q=new THREE.Quaternion();
+function rotate(n,pitch=0,yaw=0,roll=0){const b=bones.get(n),a=axes.get(n);if(!b||!a)return;b.quaternion.copy(rests.get(n)).multiply(q.setFromAxisAngle(a.pitch,pitch)).multiply(q.setFromAxisAngle(a.yaw,yaw)).multiply(q.setFromAxisAngle(a.roll,roll))}
+
+const walkLegs=[],soleSamples=[];let walkReady=false,travel=false,travelDistance=0,soleFloor=0;
+const wp=o=>o.getWorldPosition(new THREE.Vector3());
+function aimBone(b,child,target){
+ const origin=wp(b),a=wp(child).sub(origin).normalize(),v=target.clone().sub(origin).normalize();
+ if(a.lengthSq()<.5||v.lengthSq()<.5)return;
+ const world=b.getWorldQuaternion(new THREE.Quaternion()),turn=new THREE.Quaternion().setFromUnitVectors(a,v);
+ const parent=b.parent.getWorldQuaternion(new THREE.Quaternion()).invert();
+ b.quaternion.copy(parent.multiply(turn.multiply(world)));b.updateMatrixWorld(true);
+}
+const clothIds=[92,341,343,344,347,719,720,1107,1288,1289,1290,1291,1349,1351,1353,1647,1648,1649,1650,1651,1652,1653,1654,1655,2173,2174,2176,2338,2339,2340,2342,2343,2344,2393,2437,2501,2502,2503,2505,2530,2531,2532,2534,2535,2538,2732,2733,2734,2735,2736,2737,2738,2739,2740,2741,2918,2919,2920,3275,3276,3277,3278,3280,3338,3339,3340,3396,3397,3737,3741,3917,3918,3919,4270,4271,4274,4275,4457,4458,4459,4460,4500,4501,4502,4504,4543,4546,4547,4722,4723,4724,4725,4726,4728,5025,5026,5038,5039,5238,5239,5240,5637,5638,5639,5641,5928,5929,5930,5931,5932,5933,5934,6122,6134,6135,6136,6137,6329,6330,6331,6332,6333,6334,6381,6532,6754,6755,6756,6759,6760,6786,6787,6788,6789,6790,6791,6792,6793,6997,6998,6999,7108,7109,7276,7353,7354,7355,7377,7378,7379,7473,7474,7475,7677,7678,7753,7754,7755,7756,7757,7833,8261,8484,8485,8526,8527,8814,8815,8826,8827,8850,8851,8928,8983,8985,8996,8997,9089,9097,9098,9099,9100,9101,9102,9251,9286,9578,9590,9592,9593,9685,9694,9696,9697,9795,10013,10137,10138,10229,10231,10374,10380,10381,10416,10433,10435,10442,10464,10507,10528,10531];
+function repairClothWeights(){
+ let count=0;model.traverse(o=>{if(!o.isSkinnedMesh)return;const p=o.geometry.attributes.position,j=o.geometry.attributes.skinIndex,w=o.geometry.attributes.skinWeight,bs=o.skeleton.bones;
+ const name=b=>b.name.split(':').pop().replace(/^mixamorig/,'');const hip=bs.findIndex(b=>name(b)==='Hips'),leg=bs.findIndex(b=>name(b)==='RightUpLeg');if(hip<0||leg<0||p.count<=10531)return;
+ const arm=new Set(bs.map((b,i)=>/^Right(Shoulder|Arm|ForeArm|Hand)/.test(name(b))?i:-1).filter(i=>i>=0));
+ for(const i of clothIds){const y=p.getY(i),a=[j.getX(i),j.getY(i),j.getZ(i),j.getW(i)],v=[w.getX(i),w.getY(i),w.getZ(i),w.getW(i)],map=new Map();let removed=0;for(let k=0;k<4;k++){if(arm.has(a[k]))removed+=v[k];else if(v[k]>0)map.set(a[k],(map.get(a[k])||0)+v[k])}if(removed<1e-6)continue;const f=1-THREE.MathUtils.smoothstep(y,.82,.99);map.set(leg,(map.get(leg)||0)+removed*f);map.set(hip,(map.get(hip)||0)+removed*(1-f));const arr=[...map].sort((a,b)=>b[1]-a[1]).slice(0,4);while(arr.length<4)arr.push([0,0]);const sum=arr.reduce((s,x)=>s+x[1],0);j.setXYZW(i,...arr.map(x=>x[0]));w.setXYZW(i,...arr.map(x=>x[1]/sum));count++}j.needsUpdate=true;w.needsUpdate=true;});$('clothInfo').textContent='Ткань: '+count+' весов';
+}
+
+
+function repairSweaterWeights(){
+ let count=0;model.traverse(o=>{
+ if(!o.isSkinnedMesh)return;
+ const p=o.geometry.attributes.position,j=o.geometry.attributes.skinIndex,w=o.geometry.attributes.skinWeight,bs=o.skeleton.bones;
+ const name=b=>b.name.split(':').pop().replace(/^mixamorig/,'');
+ const ids=['Hips','Spine','Spine1','Spine2','LeftUpLeg','RightUpLeg'].map(n=>bs.findIndex(b=>name(b)===n));if(ids.some(i=>i<0))return;
+ const groups=new Map();
+ for(let i=0;i<p.count;i++){const key=[p.getX(i),p.getY(i),p.getZ(i)].map(v=>Math.round(v*100000)).join(',');if(!groups.has(key))groups.set(key,[]);groups.get(key).push(i)}
+ const S=THREE.MathUtils.smoothstep;
+ for(const group of groups.values()){
+ const i=group[0],y=p.getY(i),x=Math.abs(p.getX(i));
+ // A continuous waist field, independent of UV color boundaries; taper toward sleeves.
+ const outer=1-S(x,.155,.19),bottom=S(y,.79,.88),top=1-S(y,1.18,1.29),mix=outer*bottom*top;
+ if(mix<.001)continue;
+ const target=new Map();
+ const upper=S(y,1.00,1.18),leg=(1-S(y,.83,.94))*.75;
+ 
+ // determine actual side using bone local world positions in rest pose
+ const left=bs[ids[4]].getWorldPosition(new THREE.Vector3()),right=bs[ids[5]].getWorldPosition(new THREE.Vector3()),point=o.localToWorld(new THREE.Vector3(p.getX(i),y,p.getZ(i)));
+ const legId=point.distanceToSquared(left)<point.distanceToSquared(right)?ids[4]:ids[5];
+ target.set(legId,leg);target.set(ids[0],(1-leg)*(1-upper));target.set(ids[1],(1-leg)*upper*(1-S(y,1.12,1.27)));target.set(ids[2],(1-leg)*upper*S(y,1.12,1.27));
+ const map=new Map();
+ for(const v of group){const ji=[j.getX(v),j.getY(v),j.getZ(v),j.getW(v)],wi=[w.getX(v),w.getY(v),w.getZ(v),w.getW(v)];for(let k=0;k<4;k++)if(wi[k]>0)map.set(ji[k],(map.get(ji[k])||0)+wi[k]*(1-mix)/group.length)}
+ for(const [k,v] of target)map.set(k,(map.get(k)||0)+v*mix);
+ const arr=[...map].sort((a,b)=>b[1]-a[1]).slice(0,4);while(arr.length<4)arr.push([0,0]);const total=arr.reduce((s,v)=>s+v[1],0);if(total<=0)continue;
+ for(const v of group){j.setXYZW(v,...arr.map(z=>z[0]));w.setXYZW(v,...arr.map(z=>z[1]/total));count++}
+ }
+ j.needsUpdate=true;w.needsUpdate=true;
+ });$('clothInfo').textContent+=' · пояс '+count;
+}
+
+function initWalk(){
+ model.updateMatrixWorld(true);const hips=bones.get('Hips');if(!hips)return;
+ for(const n of ['Left','Right']){
+ const thigh=bones.get(n+'UpLeg'),shin=bones.get(n+'Leg'),foot=bones.get(n+'Foot');
+ if(!thigh||!shin||!foot)continue;
+ const a=wp(thigh),b=wp(shin),c=wp(foot);
+ walkLegs.push({n,thigh,shin,foot,l1:a.distanceTo(b),l2:b.distanceTo(c),ankle:c.clone().sub(model.position),rot:foot.getWorldQuaternion(new THREE.Quaternion())});
+ }
+ if(walkLegs.length!==2){$('walkInfo').textContent='Ноги: не найдены кости';return}
+ const candidates=[];let min=Infinity;const v=new THREE.Vector3();
+ model.traverse(o=>{if(!o.isSkinnedMesh)return;const p=o.geometry.attributes.position;for(let i=0;i<p.count;i++){o.getVertexPosition(i,v);o.localToWorld(v);if(v.y<.12){candidates.push({o,i,y:v.y});min=Math.min(min,v.y)}}});
+ for(const a of candidates)if(a.y<min+.025)soleSamples.push(a);
+ soleFloor=0;walkReady=true;$('walkInfo').textContent='Ноги: 2 цепи IK · опора '+soleSamples.length;
+}
+function solveLeg(leg,target,tilt=0){
+ const a=wp(leg.thigh),d=target.clone().sub(a),length=d.length();
+ const maxReach=Math.sqrt(leg.l1*leg.l1+leg.l2*leg.l2+2*leg.l1*leg.l2*Math.cos(.15)),soft=.012;
+ // Smooth reach compression avoids the abrupt derivative change at full extension.
+ const edge=maxReach-soft,dist=Math.max(Math.abs(leg.l1-leg.l2)+.001,length<=edge?length:edge+soft*(1-Math.exp(-(length-edge)/soft)));d.normalize();
+ const along=(leg.l1*leg.l1-leg.l2*leg.l2+dist*dist)/(2*dist),height=Math.sqrt(Math.max(0,leg.l1*leg.l1-along*along));
+ const pole=forward.clone().addScaledVector(d,-forward.dot(d)).normalize();
+ const knee=a.clone().addScaledVector(d,along).addScaledVector(pole,height),end=a.clone().addScaledVector(d,dist);
+ aimBone(leg.thigh,leg.shin,knee);aimBone(leg.shin,leg.foot,end);
+ leg.foot.quaternion.copy(leg.foot.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0),forward).normalize(),tilt)).multiply(leg.rot));leg.foot.updateMatrixWorld(true);
+}
+function openArm(n,angle){
+ const b=bones.get(n+'Arm'),e=bones.get(n+'ForeArm');if(!b||!e)return;
+ b.updateWorldMatrix(true,true);
+ const a=wp(b),v=wp(e).sub(a),center=wp(bones.get('Hips')),out=a.clone().sub(center);out.y=0;out.addScaledVector(forward,-out.dot(forward)).normalize();
+ const axis=forward.clone();const sign=Math.sign(new THREE.Vector3().crossVectors(axis,v).dot(out))||1;
+ const world=b.getWorldQuaternion(new THREE.Quaternion());const parent=b.parent.getWorldQuaternion(new THREE.Quaternion()).invert();
+ b.quaternion.copy(parent.multiply(new THREE.Quaternion().setFromAxisAngle(axis,sign*angle).multiply(world)));b.updateMatrixWorld(true);
+}
+
+let groundCorrection=0;
+function walkPose(dt){
+ if(!walkReady)return;
+ const speed=Number($('walkSpeed').value),stride=Number($('walkStride').value),lift=Number($('walkLift').value);
+ blend=THREE.MathUtils.lerp(blend,wanted,1-Math.exp(-dt*8));
+ if(blend<.001&&!wanted){blend=0;groundCorrection=0;return}
+ phase=(phase+dt*speed)%1;
+ const hips=bones.get('Hips');
+ const body=Number($('bodyMotion').value)*blend,arm=Number($('armMotion').value)*blend;
+ const cycle=phase*Math.PI*2;
+ // Weight transfer follows stance: peak near mid-stance, pelvis leads and chest follows with phase lag.
+ const support=Math.sin(cycle-.18),pelvisTwist=Math.cos(cycle-.12),chestTwist=Math.cos(cycle-.48);
+ const rise=-Math.cos(2*cycle-.22),settle=Math.sin(2*cycle-.35);
+ if(hipRest&&hips)hips.position.copy(hipRest).addScaledVector(hipUp,(-.010*blend+.003*rise*body)/modelScale).addScaledVector(hipSide,.007*support*body/modelScale);
+ rotate('Hips',.018*body+.003*settle*body,.033*pelvisTwist*body,.009*support*body);
+ rotate('Spine',.046*body+.005*settle*body+.004*Math.sin(time*2),-.060*chestTwist*body,-.009*support*body);
+ rotate('Spine1',.015*body+.003*Math.sin(2*cycle-.65)*body,-.046*chestTwist*body,-.006*support*body);
+ rotate('Spine2',.005*body+.002*Math.sin(2*cycle-.90)*body,-.025*chestTwist*body,-.003*support*body);
+ rotate('Neck',-.027*body-.005*settle*body,.025*chestTwist*body,.008*support*body);
+ rotate('Head',-.017*body-.003*Math.sin(2*cycle-.65)*body,.019*chestTwist*body,.003*support*body);
+ for(const [n,k] of [['Left',1],['Right',-1]]){
+ const swing=k*Math.cos(cycle-.30);
+ rotate(n+'Arm',.205*swing*arm,0,-k*.035);
+ rotate(n+'ForeArm',-.025-(.068+.065*Math.max(0,-swing))*arm,0,0);
+ openArm(n,.105*blend);
+ }
+ model.updateMatrixWorld(true);
+ for(let i=0;i<2;i++){
+ const leg=walkLegs[i],p=(phase+i*.5)%1;let z,y=0;
+ let tilt=0;
+ if(p<.57){const t=p/.57;z=stride*(.5-t);tilt=-.12*(1-THREE.MathUtils.smoothstep(t,0,.16))+.17*THREE.MathUtils.smoothstep(t,.65,1);}
+ else{const s=(p-.57)/.43;const t=s*s*(3-2*s);const back=.43/.57*s*(1-s)*(1-2*s);z=stride*(-.5+t-back);y=lift*Math.pow(Math.sin(Math.PI*s),1.55)*(1.18-.36*s);tilt=THREE.MathUtils.lerp(.17,-.12,THREE.MathUtils.smoothstep(s,.12,.85));}
+
+ const target=leg.ankle.clone().add(model.position).addScaledVector(forward,z*blend);target.y+=y*blend;
+ solveLeg(leg,target,tilt*blend);
+ }
+ model.updateMatrixWorld(true);
+ let low=Infinity;const v=new THREE.Vector3();
+ for(const a of soleSamples){a.o.getVertexPosition(a.i,v);a.o.localToWorld(v);low=Math.min(low,v.y)}
+ if(Number.isFinite(low)){const goal=THREE.MathUtils.clamp(soleFloor-low,-.06,.06);groundCorrection=THREE.MathUtils.lerp(groundCorrection,goal,1-Math.exp(-dt*16));model.position.y+=groundCorrection*blend;}
+ if(travel){const move=forward.clone().multiplyScalar(stride*speed/.57*dt*blend);model.position.add(move);camera.position.add(move);controls.target.add(move);travelDistance+=move.length();$('distance').textContent='Путь '+travelDistance.toFixed(1)+' м'}
+}
+
+function pose(dt){if(!model)return;time+=dt;
+for(const n of names){const b=bones.get(n);if(b)b.quaternion.copy(rests.get(n))}
+const breath=.004*Math.sin(time*2);
+rotate('Spine',breath,0,0);rotate('Spine1',breath*.5,0,0);rotate('Neck',0,.005*Math.sin(time*.7),0);rotate('Head',.004*Math.sin(time*1.1),0,0);
+for(const [n,k] of [['Left',1],['Right',-1]]){rotate(n+'Arm',0,0,-k*.035);rotate(n+'ForeArm',-.025,0,0);openArm(n,.065)}
+model.position.y=groundY;if(hipRest&&bones.get('Hips'))bones.get('Hips').position.copy(hipRest);walkPose(dt);
+}
+let glasses=null,glassHead=null;const glassOffset=new THREE.Vector3();let glassSize=1;
+function buildGlasses(){
+ const head=bones.get('Head');if(!head)return;glassHead=head;
+ const root=new THREE.Group(),frame=new THREE.MeshStandardMaterial({color:0x292622,metalness:.35,roughness:.4}),lower=new THREE.MeshStandardMaterial({color:0x776653,metalness:.65,roughness:.32}),lens=new THREE.MeshPhysicalMaterial({color:0xffffff,transparent:true,opacity:.045,roughness:.12,depthWrite:false,side:THREE.DoubleSide});
+ function tube(points,r=.00125,mat=frame){root.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),40,r,8,false),mat))}
+ for(const sign of [-1,1]){
+ const cx=sign*.032,w=.026,h=.020;
+ const shape=new THREE.Shape();
+ const outline=[[ -1,.48],[-.94,.78],[-.64,.95],[.50,.95],[.87,.79],[1,.48],[.91,-.40],[.72,-.78],[.35,-.96],[-.35,-.96],[-.76,-.78],[-.95,-.35],[-1,.48]];
+ const pts=outline.map(([x,y])=>new THREE.Vector3(cx+x*w,y*h,-.010*sign*x+.010*Math.pow(Math.max(0,-sign*x),2)));
+ const curve=new THREE.CatmullRomCurve3(pts);
+ const dense=curve.getPoints(80);
+ dense.forEach((p,i)=>i?shape.lineTo(p.x,p.y):shape.moveTo(p.x,p.y));
+ tube(pts,.00075,lower);
+ tube(pts.slice(0,6),.00145,frame);
+ const m=new THREE.Mesh(new THREE.ShapeGeometry(shape),lens);m.position.z=-.001;root.add(m);
+ tube([new THREE.Vector3(sign*.058,.009,-.010),new THREE.Vector3(sign*.068,.009,-.025),new THREE.Vector3(sign*.078,.006,-.105),new THREE.Vector3(sign*.079,.001,-.132),new THREE.Vector3(sign*.075,-.018,-.144)],.00145);
+ }
+ tube([new THREE.Vector3(-.006,.013,.020),new THREE.Vector3(0,.015,.023),new THREE.Vector3(.006,.013,.020)],.00145);
+ // Determine face level from head and full-body proportions; sliders allow exact visual fitting.
+ const pos=head.getWorldPosition(new THREE.Vector3()),top=new THREE.Box3().setFromObject(model).max.y;
+ const eyeY=top-.126;const center=pos.clone();center.y=eyeY;center.addScaledVector(forward,.097);center.addScaledVector(new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0),forward).normalize(),-.009);
+ root.position.copy(center);const right=new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0),forward).normalize();root.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(right,new THREE.Vector3(0,1,0),forward));scene.add(root);head.attach(root);glasses=root;glassOffset.copy(root.position);glassSize=root.scale.x;
+ updateGlasses();
+}
+function updateGlasses(){for(const n of ['gy','gz','gx','gs'])$(n+'Val').textContent=Number($(n).value).toFixed(3);if(!glasses)return;const inv=glassHead.getWorldQuaternion(new THREE.Quaternion()).invert(),scale=glassHead.getWorldScale(new THREE.Vector3()).y||1;glasses.position.copy(glassOffset).addScaledVector(new THREE.Vector3(0,1,0).applyQuaternion(inv),Number($('gy').value)/scale).addScaledVector(forward.clone().applyQuaternion(inv),Number($('gz').value)/scale).addScaledVector(side.clone().applyQuaternion(inv),Number($('gx').value)/scale);glasses.scale.setScalar(glassSize*Number($('gs').value));}
+let lipParts=[],lipPick=false,lipRay=new THREE.Raycaster(),lipPointer=new THREE.Vector2();
+function applyLip(){const amount=Number($('lipAmount').value);$('lipVal').textContent=amount.toFixed(3);for(const t of lipParts){for(const v of t.items){const k=v.i*3;t.p.setXYZ(v.i,t.orig[k]+v.d.x*amount*v.w,t.orig[k+1]+v.d.y*amount*v.w,t.orig[k+2]+v.d.z*amount*v.w)}t.p.needsUpdate=true}}
+function selectLip(hit){for(const t of lipParts){t.p.array.set(t.orig);t.p.needsUpdate=true}lipParts=[];model.updateMatrixWorld(true);
+ const o=hit.object,p=o.geometry.attributes.position,orig=new Float32Array(p.array),items=[],v=new THREE.Vector3(),d=new THREE.Vector3(),right=new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0),forward).normalize(),inv=o.matrixWorld.clone().invert(),delta=new THREE.Vector3(0,-1,0).applyMatrix3(new THREE.Matrix3().setFromMatrix4(inv));
+ for(let i=0;i<p.count;i++){o.getVertexPosition(i,v);o.localToWorld(v);d.copy(v).sub(hit.point);const x=d.dot(right),y=d.y,z=d.dot(forward);const q=(x/.030)**2+(y/.007)**2+(z/.013)**2;if(q>=1)continue;const w=(1-q)**2;if(w>.015)items.push({i,w,d:delta.clone()})}
+ if(items.length)lipParts.push({o,p,orig,items});$('lipInfo').textContent='Губа: '+items.length+' вершин';applyLip();
+}
+function autoLip(){if(!model||!glasses)return;model.updateMatrixWorld(true);const p=glasses.getWorldPosition(new THREE.Vector3());p.y-=.048;p.addScaledVector(forward,.35);lipRay.set(p,forward.clone().negate());const hit=lipRay.intersectObject(model,true).find(x=>x.object.isSkinnedMesh);if(hit)selectLip(hit)}
+renderer.domElement.addEventListener('pointerdown',e=>{if(!lipPick||!model)return;e.preventDefault();e.stopImmediatePropagation();const rect=renderer.domElement.getBoundingClientRect();lipPointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);lipRay.setFromCamera(lipPointer,camera);model.updateMatrixWorld(true);const hit=lipRay.intersectObject(model,true).find(x=>x.object.isSkinnedMesh);if(hit){selectLip(hit);lipPick=false;controls.enabled=true;$('panel').hidden=false}},true);
+
+
+
+let toothStrokes=[];let toothMode=false,toothEdits=new Map(),toothRay=new THREE.Raycaster();
+function toothSurface(hit){
+ const o=hit.object,m=Array.isArray(o.material)?o.material[hit.face.materialIndex]:o.material;if(!m?.map||!hit.uv)return null;
+ if(!toothEdits.has(m)){const old=m.map,img=old.image,c=document.createElement('canvas');c.width=img.width;c.height=img.height;const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,0,0);const tex=new THREE.CanvasTexture(c);tex.copy(old);tex.image=c;tex.needsUpdate=true;const orig=ctx.getImageData(0,0,c.width,c.height);toothEdits.set(m,{c,ctx,tex,old,orig});m.map=tex;m.needsUpdate=true}
+ const t=toothEdits.get(m),uv=hit.uv.clone();t.tex.transformUv(uv);return {t,x:Math.round(uv.x*(t.c.width-1)),y:Math.round(uv.y*(t.c.height-1))};
+}
+function paintGum(hit,strength=.65){const s=toothSurface(hit);if(!s)return;paintGumUV(s,strength)}
+function paintGumUV(s,strength=.65){const {t,x,y}=s,r=Math.max(2,Math.round(t.c.width*Number($('toothSize').value)/2048));const x0=Math.max(0,x-r),y0=Math.max(0,y-r),w=Math.min(t.c.width-x0,2*r+1),hh=Math.min(t.c.height-y0,2*r+1);const im=t.ctx.getImageData(x0,y0,w,hh),d=im.data;let count=0;
+ for(let j=0;j<hh;j++)for(let i=0;i<w;i++){const q=Math.hypot(x0+i-x,y0+j-y)/r,k=(j*w+i)*4;if(q>=1)continue;const R=d[k],G=d[k+1],B=d[k+2];if(R<125||R-G<12||R-B<10)continue;const a=strength*Math.pow(1-q*q,2);d[k]=R+(239-R)*a;d[k+1]=G+(231-G)*a;d[k+2]=B+(219-B)*a;count++}
+ t.ctx.putImageData(im,x0,y0);t.tex.needsUpdate=true;toothStrokes.push({x,y,width:t.c.width,height:t.c.height,r,strength,material:[...toothEdits.values()].indexOf(t),changed:count});$('toothInfo').textContent='Десна: '+count+' пикс. · UV '+(x/t.c.width).toFixed(4)+', '+(y/t.c.height).toFixed(4);
+}
+function autoTooth(){if(!model||!glasses)return;model.updateMatrixWorld(true);const base=glasses.getWorldPosition(new THREE.Vector3()),right=new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0),forward).normalize();let hits=[];
+ for(let yy=.055;yy<=.105;yy+=.002)for(let xx=-.031;xx<=-.006;xx+=.003){const p=base.clone().addScaledVector(right,xx).addScaledVector(forward,.35);p.y-=yy;toothRay.set(p,forward.clone().negate());const hit=toothRay.intersectObject(model,true).find(q=>q.object.isSkinnedMesh&&q.uv);if(!hit)continue;const s=toothSurface(hit);if(!s)continue;const {t,x,y}=s,k=(y*t.c.width+x)*4,d=t.orig.data;if(d[k]>180&&d[k+1]>155&&d[k+2]>140&&d[k]-d[k+1]<38&&d[k+1]-d[k+2]<30)hits.push({hit,yy,xx})}
+ if(!hits.length){$('toothInfo').textContent='Десна: выбери вручную';return}
+ hits.sort((a,b)=>a.yy-b.yy);const top=hits[0];const p=base.clone().addScaledVector(right,top.xx).addScaledVector(forward,.35);p.y-=top.yy-.002;toothRay.set(p,forward.clone().negate());const hit=toothRay.intersectObject(model,true).find(q=>q.object.isSkinnedMesh&&q.uv);if(hit){paintGum(hit,.65);const s=toothSurface(hit);if(s){const {t}=s;paintGumUV({t,x:Math.round(.1919*t.c.width),y:Math.round(.9541*t.c.height)},.65)}}
+}
+renderer.domElement.addEventListener('pointerdown',e=>{if(!toothMode||!model)return;e.preventDefault();e.stopImmediatePropagation();const rect=renderer.domElement.getBoundingClientRect();toothRay.setFromCamera(new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1),camera);model.updateMatrixWorld(true);const hit=toothRay.intersectObject(model,true).find(q=>q.object.isSkinnedMesh&&q.uv);if(hit)paintGum(hit);toothMode=false;controls.enabled=true;$('panel').hidden=false},true);
+
+
+async function restoreCap(){
+ const response=await fetch('../owner-workshop-h22/cap-repair.json');if(!response.ok)throw Error('JSON '+response.status);const data=await response.json(),meshes=[];model.traverse(o=>{if(o.isSkinnedMesh)meshes.push(o)});
+ const mesh=meshes[data.geometryMesh],p=mesh.geometry.attributes.position;
+ for(const v of data.geometry){if(v.i>=p.count)throw Error('vertex mismatch');p.setXYZ(v.i,...v.xyz)}p.needsUpdate=true;
+ for(const patch of data.patches){const o=meshes[patch.mesh],m=Array.isArray(o.material)?o.material[patch.materialIndex]:o.material;const s=toothSurface({object:o,face:{materialIndex:patch.materialIndex},uv:new THREE.Vector2(.5,.5)});if(!s||s.t.c.width!==patch.textureWidth||s.t.c.height!==patch.textureHeight)throw Error('texture mismatch');s.t.ctx.putImageData(new ImageData(new Uint8ClampedArray(patch.rgba),patch.w,patch.h),patch.x,patch.y);s.t.tex.needsUpdate=true}
+ $('capInfo').textContent='Кепка: сохранено '+data.geometry.length+' вершин, '+data.patches.length+' участка';
+}
+
+function view(n){controls.target.set(model?model.position.x:0,.88,model?model.position.z:0);const v=n==='side'?side.clone():forward.clone().multiplyScalar(n==='back'?-1:1);camera.position.copy(controls.target).addScaledVector(v,3.4).add(new THREE.Vector3(0,.3,0));controls.update()}
+new GLTFLoader().load('../animations/owner-v2-rig-no-animations.glb',g=>{try{model=g.scene;scene.add(model);model.updateMatrixWorld(true);model.traverse(o=>{if(o.isBone){const n=o.name.split(':').pop().replace(/^mixamorig/,'');bones.set(n,o)}if(o.isMesh){o.castShadow=true;o.receiveShadow=true;if(o.isSkinnedMesh)o.frustumCulled=false}});const l=bones.get('LeftArm'),r=bones.get('RightArm');if(l&&r){side.copy(l.getWorldPosition(new THREE.Vector3()).sub(r.getWorldPosition(new THREE.Vector3())));side.y=0;side.normalize();forward.crossVectors(side,new THREE.Vector3(0,1,0)).normalize();const hf=bones.get('headfront'),head=bones.get('Head');if(hf&&head&&hf.getWorldPosition(new THREE.Vector3()).sub(head.getWorldPosition(new THREE.Vector3())).dot(forward)<0)forward.negate()}
+const lateral=new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0),forward).normalize();for(const [n,b] of bones){rests.set(n,b.quaternion.clone());const inv=b.getWorldQuaternion(new THREE.Quaternion()).invert();axes.set(n,{pitch:lateral.clone().applyQuaternion(inv),yaw:new THREE.Vector3(0,1,0).applyQuaternion(inv),roll:forward.clone().applyQuaternion(inv)})}
+const box=new THREE.Box3().setFromObject(model),size=box.getSize(new THREE.Vector3());model.scale.setScalar(1.75/size.y);model.updateMatrixWorld(true);box.setFromObject(model);const center=box.getCenter(new THREE.Vector3());model.position.set(-center.x,-box.min.y,-center.z);groundY=model.position.y;model.updateMatrixWorld(true);const hips=bones.get('Hips');if(hips){hipRest=hips.position.clone();const inv=hips.parent.getWorldQuaternion(new THREE.Quaternion()).invert();hipUp=new THREE.Vector3(0,1,0).applyQuaternion(inv);hipSide=lateral.clone().applyQuaternion(inv);modelScale=hips.parent.getWorldScale(new THREE.Vector3()).y||1}
+repairClothWeights();repairSweaterWeights();initWalk();buildGlasses();autoLip();try{autoTooth()}catch(e){$('toothInfo').textContent='Десна: '+e.message}restoreCap().catch(e=>$('capInfo').textContent='Кепка: '+e.message);controls.target.set(0,.88,0);view('front');$('status').textContent='Покой';}catch(e){$('status').textContent='Ошибка: '+e.message}},undefined,e=>$('status').textContent='Ошибка загрузки GLB');
+$('lipAmount').oninput=applyLip;$('lipPick').onclick=()=>{lipPick=true;controls.enabled=false;$('panel').hidden=true;$('lipInfo').textContent='Нажми на центр верхней губы'};$('toothPick').onclick=()=>{toothMode=true;lipPick=false;controls.enabled=false;$('panel').hidden=true;$('toothInfo').textContent='Нажми на розовый участок над зубом'};$('toothSave').onclick=()=>{const data={version:'H36',model:'owner-v2-rig-no-animations.glb',strokes:toothStrokes,settings:Object.fromEntries(['gy','gz','gx','gs','lipAmount'].map(n=>[n,Number($(n).value)]))};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='owner-H36-retouch.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);};$('toothReset').onclick=()=>{toothStrokes=[];for(const t of toothEdits.values()){t.ctx.putImageData(t.orig,0,0);t.tex.needsUpdate=true}$('toothInfo').textContent='Десна: исходная'};for(const n of ['walkSpeed','walkStride','walkLift','bodyMotion','armMotion'])$(n).oninput=()=>$(n+'Val').textContent=Number($(n).value).toFixed(3);$('walk').onclick=()=>{if(!walkReady)return;travel=false;wanted=1;$('status').textContent='Шаг на месте'};$('travel').onclick=()=>{if(!walkReady)return;travel=true;wanted=1;$('status').textContent='Прогулка'};$('idle').onclick=()=>{wanted=0;$('status').textContent='Покой'};$('face').onclick=()=>{if(!model)return;controls.target.copy(bones.get('Head').getWorldPosition(new THREE.Vector3()));controls.target.y+=.08;camera.position.copy(controls.target).addScaledVector(forward,.85);controls.update()};$('glassesToggle').onclick=()=>{if(glasses){glasses.visible=!glasses.visible;$('glassesToggle').textContent=glasses.visible?'Очки: вкл.':'Очки: выкл.'}};for(const n of ['gy','gz','gx','gs'])$(n).oninput=updateGlasses;for(const n of ['front','side','back'])$(n).onclick=()=>view(n);function zoom(f){const d=camera.position.clone().sub(controls.target);d.setLength(THREE.MathUtils.clamp(d.length()*f,.8,10));camera.position.copy(controls.target).add(d);controls.update()}$('plus').onclick=()=>zoom(.8);$('minus').onclick=()=>zoom(1.25);$('toggle').onclick=()=>{$('panel').hidden=!$('panel').hidden;$('toggle').textContent=$('panel').hidden?'◇':'◆'};
+const clock=new THREE.Clock();let frames=0,elapsed=0;function animate(){requestAnimationFrame(animate);const dt=clock.getDelta();frames++;elapsed+=dt;if(elapsed>.6){$('fps').textContent='FPS '+Math.round(frames/elapsed);frames=0;elapsed=0}pose(Math.min(dt,.05));controls.update();renderer.render(scene,camera)}animate();
+function resizeGame(){const w=document.documentElement.clientWidth,h=document.documentElement.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix()}addEventListener('resize',resizeGame);resizeGame();
+document.addEventListener('touchmove',e=>{if(e.touches.length>1||e.target===renderer.domElement)e.preventDefault()},{passive:false});
+document.addEventListener('selectstart',e=>e.preventDefault());
+document.addEventListener('contextmenu',e=>e.preventDefault());
+let lastTap=0;renderer.domElement.addEventListener('touchend',e=>{if(e.touches.length)return;const now=Date.now();if(now-lastTap<300)e.preventDefault();lastTap=now},{passive:false});for(const t of ['gesturestart','gesturechange','gestureend'])document.addEventListener(t,e=>e.preventDefault(),{passive:false});document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
+</script></body></html>
+<!-- Retry Pages publication after upstream 502; no model changes. -->
