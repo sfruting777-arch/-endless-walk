@@ -63,3 +63,10 @@
 ## Порядок совместной разработки (обязательный)
 - Пользователь — тестировщик и художественный руководитель; ассистент — инженер. Ассистент сам изменяет код, публикует отдельную версию GitHub Pages и даёт ссылку для теста. Не предлагать пользователю править код самостоятельно и не заменять выполнение планом. Сохранять утверждённые версии.
 - H27: уменьшено движение таза для проверки деформации правого бедра/штанов; корпус 0.65 по умолчанию. Если дефект сохраняется, проверить веса скиннинга, особенно влияние костей руки на ткань.
+
+
+## John — approved for park integration
+- Approved baseline: `owner-workshop-h40/index.html` (H41 contour experiment rejected as visually insignificant). Preserve H40 unchanged.
+- Settings: tempo 0.80, stride 0.36, lift 0.035, torso 0.40, arms 1.0. Narrow stance, neck correction, toe flex, garment repairs retained.
+- Re-evaluate gait in park with dog before further changes.
+- Park direction: compact circular path around a large illuminated tree; benches, flowers, lights, free camera; walking with leash and toggle for free dog roaming. No scoring or timed tasks.
