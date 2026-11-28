@@ -87,3 +87,9 @@
 ### Park V34 — approved
 - User approved treat drop: 10.5 cm over 0.32 s. Preserve fingertip placement and treat size from V31, underhand toss from V32.
 - Keep `park-v34/index.html` as approved baseline for subsequent development.
+
+
+### Park V38 — approved baseline
+- User approved cinematic fetch camera (V37) and reward drop (V38): 15.5 cm over 0.39 s.
+- Preserve approved underhand throw, pickup, return, treat placement and size, cinematic camera, FPS-only HUD.
+- Use park-v38/index.html as baseline for subsequent versions; do not overwrite approved version.
