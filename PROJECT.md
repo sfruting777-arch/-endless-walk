@@ -93,3 +93,8 @@
 - User approved cinematic fetch camera (V37) and reward drop (V38): 15.5 cm over 0.39 s.
 - Preserve approved underhand throw, pickup, return, treat placement and size, cinematic camera, FPS-only HUD.
 - Use park-v38/index.html as baseline for subsequent versions; do not overwrite approved version.
+
+
+### Park V39 — approved baseline
+- User approved smoother landing-to-chase camera transition. Keep landing anchor and gradual reveal of approaching dog.
+- Preserve all V38 approved mechanics and camera stages. Continue from park-v39/index.html in a new version directory.
