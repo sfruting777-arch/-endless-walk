@@ -76,3 +76,9 @@
 - User approved branch appearance and size in Park V7. Asset: `models/approved/park_stick_optimized.glb` (582744 bytes, 9993 triangles). Preserve geometry and textures.
 - In park: length 0.40 m; cross-section scale 1.35 relative to uniform scaling at 40 cm (1.8× V6 thickness). Preserve local centering and ground alignment.
 - Approved park baseline: `park-v7/index.html`, 44 m park, 2.4 m path, John and dog scale retained. Next: fetch interaction (throw, retrieve, return to John); keep V7 intact.
+
+
+### Park V33
+- V32 underhand stick toss approved by user; preserve it.
+- V33 treat drop 5.5 cm, 0.23 s; pending visual test.
+- Workflow: assistant directly implements changes in GitHub and provides test URL; user tests. Do not send implementation instructions instead of making edits.
