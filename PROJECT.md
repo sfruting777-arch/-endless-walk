@@ -82,3 +82,8 @@
 - V32 underhand stick toss approved by user; preserve it.
 - V33 treat drop 5.5 cm, 0.23 s; pending visual test.
 - Workflow: assistant directly implements changes in GitHub and provides test URL; user tests. Do not send implementation instructions instead of making edits.
+
+
+### Park V34 — approved
+- User approved treat drop: 10.5 cm over 0.32 s. Preserve fingertip placement and treat size from V31, underhand toss from V32.
+- Keep `park-v34/index.html` as approved baseline for subsequent development.
